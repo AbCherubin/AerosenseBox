@@ -1,13 +1,14 @@
 #ifndef Ab_MQTTClient_h
 #define Ab_MQTTClient_h
 #include "Ab_LCD.h"
+#include "Ab_BoxParameters.h"
 #include <GSMClient.h>
 #include <PubSubClient.h>
 #include <SIM76xx.h>
 #include <ArduinoJson.h>
 
 extern SerialLCD LCD;
-
+extern BoxParameters box;
 class Ab_MQTTClient
 {
 public:

@@ -202,26 +202,51 @@ void Ab_MQTTClient::handleAerosensebox(char *topic, byte *payload, unsigned int 
         return;
     }
 
-    if (jsonDataFromServer.containsKey("enginehours"))
+    if (jsonDataFromServer.containsKey("type"))
     {
-        // Extract values from JSON
-        long engineHours = jsonDataFromServer["enginehours"];
+        String messageType = jsonDataFromServer["type"];
 
-        // You can now use these values as needed
-        Serial.print("Engine Hours: ");
-        Serial.println(engineHours);
+        if (messageType == "enginehours")
+        {
+            if (jsonDataFromServer.containsKey("result"))
+            {
+                long engineHours = jsonDataFromServer["result"];
+                box.writeLongIntoEEPROM(box.ENGINE_HOURS_ADDRESS, engineHours);
+                Serial.print("Engine Hours: ");
+                Serial.println(engineHours);
+            }
+            else
+            {
+                Serial.println("Missing 'result' field for 'enginehours' type.");
+            }
+        }
+        else if (messageType == "tripmeter")
+        {
+            if (jsonDataFromServer.containsKey("result"))
+            {
+                long tripMeter = jsonDataFromServer["result"];
+                box.writeLongIntoEEPROM(box.DISTANCE_ADDRESS, tripMeter);
+                Serial.print("Trip Meter: ");
+                Serial.println(tripMeter);
+            }
+            else
+            {
+                Serial.println("Missing 'result' field for 'tripmeter' type.");
+            }
+        }
+        else if (messageType == "restartbox")
+        {
+            Serial.println("Received 'restartbox' type. Restarting...");
+            ESP.restart();
+        }
+        else
+        {
+            Serial.println("Unknown message type: " + messageType);
+        }
     }
-    else if (jsonDataFromServer.containsKey("tripmeter"))
+    else
     {
-        long tripMeter = jsonDataFromServer["tripmeter"];
-        Serial.print("Trip Meter: ");
-        Serial.println(tripMeter);
-    }
-    else if (jsonDataFromServer.containsKey("restart"))
-    {
-        bool restart = jsonDataFromServer["restart"];
-        Serial.print("Restart: ");
-        Serial.println(restart);
+        Serial.println("Missing 'type' field in the JSON message.");
     }
 }
 
