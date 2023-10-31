@@ -3,10 +3,13 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-
+#include <EEPROM.h>
 class BoxParameters
 {
 public:
+  uint8_t ENGINE_HOURS_ADDRESS = 0;
+  uint8_t DISTANCE_ADDRESS = 4;
+
   String id;
   String signalStrength;
   String dateTime;
@@ -21,11 +24,13 @@ public:
   String engineTemperatureADC; // Engine Temperature Sensor
   String temperature;
   String engineMinutes;
+  String tripmeter; // KM
   String rfid;
   void initialize();
+  void writeLongIntoEEPROM(int address, long number);
+  long readLongFromEEPROM(int address);
   String prepareDataOutput();
   String getMqttPayload();
-  String authenticationJsonObject(String id, String type, String cardNo);
 
 private:
   void appendParameter(JsonObject &json, const char *key, const String &value);

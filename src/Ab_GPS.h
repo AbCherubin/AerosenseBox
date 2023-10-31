@@ -33,6 +33,12 @@ public:
 
     bool standby();
     bool wakeup();
+
+    double haversine(double lat1, double lon1, double lat2, double lon2);
+    double preLocationlat;
+    double preLocationlng;
+    double curLocationlat;
+    double curLocationlng;
 };
 
 extern GPSClass GPS;

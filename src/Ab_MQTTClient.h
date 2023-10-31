@@ -33,6 +33,7 @@ private:
     void handleFlightListTopic(char *topic, byte *payload, unsigned int length);
     void handleFlightCheck(char *topic, byte *payload, unsigned int length);
     void handleVehicleStatus(char *topic, byte *payload, unsigned int length);
+    void handleAerosensebox(char *topic, byte *payload, unsigned int length);
 };
 
 #endif

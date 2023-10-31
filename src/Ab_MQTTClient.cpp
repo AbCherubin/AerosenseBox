@@ -189,6 +189,42 @@ void Ab_MQTTClient::handleVehicleStatus(char *topic, byte *payload, unsigned int
     Serial.println(ETD);
 }
 
+void Ab_MQTTClient::handleAerosensebox(char *topic, byte *payload, unsigned int length)
+{
+    DynamicJsonDocument jsonDataFromServer(ESP.getMaxAllocHeap() - 1024);
+    DeserializationError error = deserializeJson(jsonDataFromServer, payload, length);
+    jsonDataFromServer.shrinkToFit();
+
+    if (error)
+    {
+        Serial.print(F("deserializeJson() failed: "));
+        Serial.println(error.f_str());
+        return;
+    }
+
+    if (jsonDataFromServer.containsKey("enginehours"))
+    {
+        // Extract values from JSON
+        long engineHours = jsonDataFromServer["enginehours"];
+
+        // You can now use these values as needed
+        Serial.print("Engine Hours: ");
+        Serial.println(engineHours);
+    }
+    else if (jsonDataFromServer.containsKey("tripmeter"))
+    {
+        long tripMeter = jsonDataFromServer["tripmeter"];
+        Serial.print("Trip Meter: ");
+        Serial.println(tripMeter);
+    }
+    else if (jsonDataFromServer.containsKey("restart"))
+    {
+        bool restart = jsonDataFromServer["restart"];
+        Serial.print("Restart: ");
+        Serial.println(restart);
+    }
+}
+
 void Ab_MQTTClient::handleFlightCheck(char *topic, byte *payload, unsigned int length)
 {
     LCD.recheck_flight_list = true;
@@ -212,6 +248,10 @@ void Ab_MQTTClient::callback(char *topic, byte *payload, unsigned int length)
     else if (strncmp(topic, "client/vehiclestatus/", strlen("client/vehiclestatus/")) == 0)
     {
         handleVehicleStatus(topic, payload, length);
+    }
+    else if (strncmp(topic, "client/aerosensebox/", strlen("client/aerosensebox/")) == 0)
+    {
+        handleAerosensebox(topic, payload, length);
     }
     else if (strcmp(topic, "client/flight/check/") == 0)
     {

@@ -17,6 +17,7 @@ void BoxParameters::initialize()
   temperature = "";
   engineMinutes = "";
   rfid = "";
+  tripmeter = "";
 }
 
 String BoxParameters::prepareDataOutput()
@@ -35,6 +36,7 @@ String BoxParameters::prepareDataOutput()
   appendParameter(root, "vehicle_status", operationSensorADC);
   appendParameter(root, "sensor_1", engineTemperatureADC);
   appendParameter(root, "operation_time", engineMinutes);
+  appendParameter(root, "tripmeter", tripmeter);
   String output;
   serializeJson(root, output);
   return output;
@@ -56,14 +58,19 @@ String BoxParameters::getMqttPayload()
   return payload;
 }
 
-String BoxParameters::authenticationJsonObject(String id, String type, String cardNo)
+void BoxParameters::writeLongIntoEEPROM(int address, long number)
 {
-  const size_t capacity = JSON_OBJECT_SIZE(5);
-  DynamicJsonDocument doc(capacity);
-  doc["id"] = id;
-  doc["type"] = type;
-  doc["card_no"] = cardNo;
-  String jsonStr;
-  serializeJson(doc, jsonStr);
-  return jsonStr;
+  EEPROM.write(address, (number >> 24) & 0xFF);
+  EEPROM.write(address + 1, (number >> 16) & 0xFF);
+  EEPROM.write(address + 2, (number >> 8) & 0xFF);
+  EEPROM.write(address + 3, number & 0xFF);
+  EEPROM.commit();
+}
+
+long BoxParameters::readLongFromEEPROM(int address)
+{
+  return ((long)EEPROM.read(address) << 24) +
+         ((long)EEPROM.read(address + 1) << 16) +
+         ((long)EEPROM.read(address + 2) << 8) +
+         (long)EEPROM.read(address + 3);
 }
