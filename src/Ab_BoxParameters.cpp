@@ -18,6 +18,7 @@ void BoxParameters::initialize()
   engineMinutes = "";
   rfid = "";
   tripmeter = "";
+  GSEID = "";
 }
 
 String BoxParameters::prepareDataOutput()

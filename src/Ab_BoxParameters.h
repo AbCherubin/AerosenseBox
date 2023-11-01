@@ -26,6 +26,9 @@ public:
   String engineMinutes;
   String tripmeter; // KM
   String rfid;
+
+  String GSEID;
+  String driver;
   void initialize();
   void writeLongIntoEEPROM(int address, long number);
   long readLongFromEEPROM(int address);
