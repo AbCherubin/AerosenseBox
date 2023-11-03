@@ -220,14 +220,14 @@ void Ab_MQTTClient::handleAerosensebox(char *topic, byte *payload, unsigned int 
                 Serial.println("Missing 'result' field for 'enginehours' type.");
             }
         }
-        else if (messageType == "tripmeter")
+        else if (messageType == "distance")
         {
             if (jsonDataFromServer.containsKey("result"))
             {
-                long tripMeter = jsonDataFromServer["result"];
-                box.writeLongIntoEEPROM(box.DISTANCE_ADDRESS, tripMeter);
-                Serial.print("Trip Meter: ");
-                Serial.println(tripMeter);
+                long distance = jsonDataFromServer["result"];
+                box.writeLongIntoEEPROM(box.DISTANCE_ADDRESS, distance);
+                Serial.print("distance Meter: ");
+                Serial.println(distance);
             }
             else
             {

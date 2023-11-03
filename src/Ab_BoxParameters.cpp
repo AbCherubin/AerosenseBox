@@ -17,7 +17,7 @@ void BoxParameters::initialize()
   temperature = "";
   engineMinutes = "";
   rfid = "";
-  tripmeter = "";
+  distance = "";
   GSEID = "";
 }
 
@@ -37,7 +37,7 @@ String BoxParameters::prepareDataOutput()
   appendParameter(root, "vehicle_status", operationSensorADC);
   appendParameter(root, "sensor_1", engineTemperatureADC);
   appendParameter(root, "operation_time", engineMinutes);
-  appendParameter(root, "tripmeter", tripmeter);
+  appendParameter(root, "distance", distance);
   String output;
   serializeJson(root, output);
   return output;

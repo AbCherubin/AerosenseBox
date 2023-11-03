@@ -24,7 +24,7 @@ public:
   String engineTemperatureADC; // Engine Temperature Sensor
   String temperature;
   String engineMinutes;
-  String tripmeter; // KM
+  String distance; // KM
   String rfid;
 
   String GSEID;
