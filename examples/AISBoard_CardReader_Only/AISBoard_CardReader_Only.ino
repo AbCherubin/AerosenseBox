@@ -19,7 +19,7 @@ WIEGAND wg;
 SerialLCD LCD;
 AccelerometerLib acc(12345);
 
-#define EEPROM_SIZE 8
+#define EEPROM_SIZE 16
 BoxParameters box;
 
 // MQTT details
@@ -46,10 +46,7 @@ long lastEngineCounter = 0;
 
 long lastGPSCounter = 0;
 
-long engineMinCount = 0;
 int engineSecondCount = 0;
-
-long tripmeterCount = 0;
 
 int engine_flag = 0;
 
@@ -79,12 +76,14 @@ void setup()
   // box.writeLongIntoEEPROM(box.ENGINE_HOURS_ADDRESS, 12345678);
   acc.setupAccelerometer();
   acc.calibrateSensors(); // Perform calibration once during setup
-  engineMinCount = box.readLongFromEEPROM(box.ENGINE_HOURS_ADDRESS);
-  tripmeterCount = box.readLongFromEEPROM(box.DISTANCE_ADDRESS);
+  box.engineMinCount = box.readLongFromEEPROM(box.ENGINE_HOURS_ADDRESS);
+  box.distanceCount = box.readDoubleFromEEPROM(box.DISTANCE_ADDRESS);
   // Initialize the MQTT client
   mqttClient.begin();
   Serial.print("Engine Count (mins) :");
-  Serial.println(String(engineMinCount));
+  Serial.println(String(box.engineMinCount));
+  Serial.print("box.distanceCount (km) :");
+  Serial.println(String(box.distanceCount, 3));
   xTaskCreatePinnedToCore(
       Sensors,   /* Task function. */
       "sensors", /* name of task. */
@@ -110,6 +109,7 @@ void Sensors(void *pvParameters)
     // Engine Start-Stop
     long now = millis();
     engine_flag = digitalRead(ADC4_pin);
+    engine_flag = 1;
     switch (engine_flag)
     {
     case 1:
@@ -134,8 +134,8 @@ void Sensors(void *pvParameters)
         if (engineSecondCount >= 60)
         {
           engineSecondCount = 0;
-          engineMinCount++;
-          box.writeLongIntoEEPROM(box.ENGINE_HOURS_ADDRESS, engineMinCount);
+          box.engineMinCount++;
+          box.writeLongIntoEEPROM(box.ENGINE_HOURS_ADDRESS, box.engineMinCount);
         }
       }
       if (lastGPSCounter == 0)
@@ -158,10 +158,10 @@ void Sensors(void *pvParameters)
             double distance = GPS.haversine(GPS.preLocationlat, GPS.preLocationlng, GPS.curLocationlat, GPS.curLocationlng);
             Serial.print("Distance (km): ");
             Serial.println(distance, 6);
-            tripmeterCount = tripmeterCount + distance;
-            Serial.print("tripmeterCount (km): ");
-            Serial.println(distance, 6);
-            box.writeLongIntoEEPROM(box.DISTANCE_ADDRESS, tripmeterCount);
+            box.distanceCount = box.distanceCount + distance;
+            Serial.print("box.distanceCount (km): ");
+            Serial.println(box.distanceCount, 6);
+            box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS, box.distanceCount);
           }
         }
       }
@@ -268,15 +268,16 @@ void loop()
       }
       box.signalStrength = Network.getSignalStrength();
       box.engineTemperatureADC = SHT40.readTemperature();
-      box.engineMinutes = String(engineMinCount);
-      box.tripmeter = String(tripmeterCount);
+      box.engineMinutes = String(box.engineMinCount);
+      Serial.println(box.distanceCount, 3);
+      box.distance = String(box.distanceCount, 3);
       if (acc.isAccReady())
       {
         double gySum = acc.getGySum();
         box.acceleration = String(gySum);
       }
       String mqttPayload = box.getMqttPayload();
-      mqttClient.publish("updatestatus", mqttPayload.c_str());
+      mqttClient.publish(box.MQTT_SERVER_MAIN_TOPIC, mqttPayload.c_str());
       Serial.println(mqttPayload);
       // client.publish("updatebox", "Hello world");
       delay(100);

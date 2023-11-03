@@ -75,3 +75,27 @@ long BoxParameters::readLongFromEEPROM(int address)
          ((long)EEPROM.read(address + 2) << 8) +
          (long)EEPROM.read(address + 3);
 }
+
+void BoxParameters::writeDoubleIntoEEPROM(int address, double number)
+{
+  uint64_t rawValue;
+  memcpy(&rawValue, &number, sizeof(double));
+
+  for (int i = 0; i < sizeof(double); i++)
+  {
+    EEPROM.write(address + i, (rawValue >> (56 - 8 * i)) & 0xFF);
+  }
+  EEPROM.commit();
+}
+
+double BoxParameters::readDoubleFromEEPROM(int address)
+{
+  uint64_t rawValue = 0;
+  for (int i = 0; i < sizeof(double); i++)
+  {
+    rawValue |= ((uint64_t)EEPROM.read(address + i) << (56 - 8 * i));
+  }
+  double result;
+  memcpy(&result, &rawValue, sizeof(double));
+  return result;
+}

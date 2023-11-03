@@ -191,9 +191,8 @@ void Ab_MQTTClient::handleVehicleStatus(char *topic, byte *payload, unsigned int
 
 void Ab_MQTTClient::handleAerosensebox(char *topic, byte *payload, unsigned int length)
 {
-    DynamicJsonDocument jsonDataFromServer(ESP.getMaxAllocHeap() - 1024);
+    StaticJsonDocument<256> jsonDataFromServer;
     DeserializationError error = deserializeJson(jsonDataFromServer, payload, length);
-    jsonDataFromServer.shrinkToFit();
 
     if (error)
     {
@@ -210,10 +209,14 @@ void Ab_MQTTClient::handleAerosensebox(char *topic, byte *payload, unsigned int 
         {
             if (jsonDataFromServer.containsKey("result"))
             {
-                long engineHours = jsonDataFromServer["result"];
-                box.writeLongIntoEEPROM(box.ENGINE_HOURS_ADDRESS, engineHours);
+                box.engineMinCount = jsonDataFromServer["result"];
+                box.writeLongIntoEEPROM(box.ENGINE_HOURS_ADDRESS, box.engineMinCount);
                 Serial.print("Engine Hours: ");
-                Serial.println(engineHours);
+                Serial.println(box.engineMinCount);
+                box.engineMinutes = String(box.engineMinCount);
+                String mqttPayload = box.getMqttPayload();
+                mqttClient.publish(box.MQTT_SERVER_MAIN_TOPIC, mqttPayload.c_str());
+                Serial.println(mqttPayload);
             }
             else
             {
@@ -224,10 +227,14 @@ void Ab_MQTTClient::handleAerosensebox(char *topic, byte *payload, unsigned int 
         {
             if (jsonDataFromServer.containsKey("result"))
             {
-                long distance = jsonDataFromServer["result"];
-                box.writeLongIntoEEPROM(box.DISTANCE_ADDRESS, distance);
+                box.distanceCount = jsonDataFromServer["result"];
+                box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS, box.distanceCount);
                 Serial.print("distance Meter: ");
-                Serial.println(distance);
+                Serial.println(box.distanceCount);
+                box.distance = String(box.distanceCount, 3);
+                String mqttPayload = box.getMqttPayload();
+                mqttClient.publish(box.MQTT_SERVER_MAIN_TOPIC, mqttPayload.c_str());
+                Serial.println(mqttPayload);
             }
             else
             {

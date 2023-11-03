@@ -9,6 +9,7 @@ class BoxParameters
 public:
   uint8_t ENGINE_HOURS_ADDRESS = 0;
   uint8_t DISTANCE_ADDRESS = 4;
+  const char *MQTT_SERVER_MAIN_TOPIC = "updatestatus";
 
   String id;
   String signalStrength;
@@ -29,9 +30,15 @@ public:
 
   String GSEID;
   String driver;
+
+  long engineMinCount = 0;
+  double distanceCount = 0;
+
   void initialize();
   void writeLongIntoEEPROM(int address, long number);
   long readLongFromEEPROM(int address);
+  void writeDoubleIntoEEPROM(int address, double number);
+  double readDoubleFromEEPROM(int address);
   String prepareDataOutput();
   String getMqttPayload();
 
