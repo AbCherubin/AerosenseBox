@@ -39,6 +39,8 @@ public:
     double preLocationlng;
     double curLocationlat;
     double curLocationlng;
+
+    float DISTANCE_THRESHOLD = 0.005;
 };
 
 extern GPSClass GPS;

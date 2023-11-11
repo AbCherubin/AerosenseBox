@@ -106,10 +106,11 @@ void Sensors(void *pvParameters)
 
   for (;;)
   {
+
     // Engine Start-Stop
     long now = millis();
     engine_flag = digitalRead(ADC4_pin);
-    engine_flag = 1;
+    // engine_flag = 1;
     switch (engine_flag)
     {
     case 1:
@@ -144,6 +145,7 @@ void Sensors(void *pvParameters)
       }
       else if (now - lastGPSCounter > 5000)
       {
+
         if (GPS.available())
         {
           lastGPSCounter = now;
@@ -152,16 +154,23 @@ void Sensors(void *pvParameters)
 
           GPS.curLocationlat = GPS.latitude();
           GPS.curLocationlng = GPS.longitude();
-
+          Serial.println("GPS");
           if (GPS.preLocationlat != 0.0 && GPS.preLocationlng != 0.0)
           {
             double distance = GPS.haversine(GPS.preLocationlat, GPS.preLocationlng, GPS.curLocationlat, GPS.curLocationlng);
-            Serial.print("Distance (km): ");
-            Serial.println(distance, 6);
-            box.distanceCount = box.distanceCount + distance;
-            Serial.print("box.distanceCount (km): ");
-            Serial.println(box.distanceCount, 6);
-            box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS, box.distanceCount);
+            if (distance > GPS.DISTANCE_THRESHOLD)
+            {
+              Serial.print("Distance (km): ");
+              Serial.println(distance, 3);
+              box.distanceCount = box.distanceCount + distance;
+              Serial.print("box.distanceCount (km): ");
+              Serial.println(box.distanceCount, 3);
+              box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS, box.distanceCount);
+            }
+            else
+            {
+              Serial.println("Small movement detected. Ignoring.");
+            }
           }
         }
       }
@@ -194,7 +203,7 @@ void Sensors(void *pvParameters)
         Serial.println("No GSEID");
       }
     }
-    ///////////////////////////////////////
+
     delay(10);
   }
 }
@@ -270,7 +279,7 @@ void loop()
       box.engineTemperatureADC = SHT40.readTemperature();
       box.engineMinutes = String(box.engineMinCount);
       Serial.println(box.distanceCount, 3);
-      box.distance = String(box.distanceCount, 3);
+      box.distance = String(int(box.distanceCount));
       if (acc.isAccReady())
       {
         double gySum = acc.getGySum();
