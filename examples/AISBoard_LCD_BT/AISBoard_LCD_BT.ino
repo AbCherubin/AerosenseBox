@@ -43,7 +43,6 @@ unsigned int port = MQTT_HOST_PORT;
 const char *broker = MQTT_GATEWAY;
 const char *mqttUsername = MQTT_USER;
 const char *mqttPassword = MQTT_PASS;
-const char *topicOutput1 = MQTT_TOPIC;
 
 bool isSubscribeTopics = false;
 Ab_MQTTClient mqttClient(mqtt_id, broker, port, mqttUsername, mqttPassword);
