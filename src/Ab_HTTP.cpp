@@ -16,10 +16,12 @@ void Ab_HTTPClient::getTimeFromAPI()
 
     if (statusCode == 200)
     {
+        StaticJsonDocument<100> filter;
+        filter["unixtime"] = true;
         // Parse the JSON response
-        DynamicJsonDocument jsonDoc(1024); // Adjust the buffer size as needed
 
-        DeserializationError error = deserializeJson(jsonDoc, response);
+        StaticJsonDocument<400> jsonDoc;
+        DeserializationError error = deserializeJson(jsonDoc, response, DeserializationOption::Filter(filter));
 
         if (!error)
         {
@@ -61,8 +63,14 @@ void Ab_HTTPClient::getVehicleAPI(String id)
     client.stop();
     if (statusCode == 200)
     {
-        DynamicJsonDocument jsonDoc(2048);
-        DeserializationError error = deserializeJson(jsonDoc, response);
+        // DynamicJsonDocument jsonDoc(2048);
+        // DeserializationError error = deserializeJson(jsonDoc, response);
+        StaticJsonDocument<100> filter;
+        filter["results"][0]["name"] = true;
+        // Parse the JSON response
+
+        StaticJsonDocument<200> jsonDoc;
+        DeserializationError error = deserializeJson(jsonDoc, response, DeserializationOption::Filter(filter));
 
         if (error)
         {
@@ -76,26 +84,26 @@ void Ab_HTTPClient::getVehicleAPI(String id)
 
         if (!results.isNull())
         {
-            long id = results["id"];
-            String name = results["name"];
-            String issi = results["issi"];
-            String unitName = results["unit"]["name"];
+            // long id = results["id"];
+            // String name = results["name"];
+            // String issi = results["issi"];
+            // String unitName = results["unit"]["name"];
             String vehicleName = results["vehicle"]["name"];
-            String vehicleStatus = results["vehicle"]["status"];
+            // String vehicleStatus = results["vehicle"]["status"];
 
             // You can now use the extracted data as needed
-            Serial.print("ID: ");
-            Serial.println(id);
-            Serial.print("Name: ");
-            Serial.println(name);
-            Serial.print("ISSI: ");
-            Serial.println(issi);
-            Serial.print("Unit Name: ");
-            Serial.println(unitName);
+            // Serial.print("ID: ");
+            // Serial.println(id);
+            // Serial.print("Name: ");
+            // Serial.println(name);
+            // Serial.print("ISSI: ");
+            // Serial.println(issi);
+            // Serial.print("Unit Name: ");
+            // Serial.println(unitName);
             Serial.print("Vehicle Name: ");
             Serial.println(vehicleName);
-            Serial.print("Vehicle Status: ");
-            Serial.println(vehicleStatus);
+            // Serial.print("Vehicle Status: ");
+            // Serial.println(vehicleStatus);
             vehicleID = vehicleName;
         }
         else
@@ -108,7 +116,7 @@ void Ab_HTTPClient::getVehicleAPI(String id)
 bool Ab_HTTPClient::postDriverAPI(String card_no, String vehicle)
 {
     Serial.println("postDriverAPI");
-    DynamicJsonDocument payloadDoc(64);
+    StaticJsonDocument<64> payloadDoc;
     JsonObject payload = payloadDoc.to<JsonObject>();
     payload["vehicle"] = vehicle;
     payload["card_no"] = card_no;
@@ -138,8 +146,13 @@ bool Ab_HTTPClient::postDriverAPI(String card_no, String vehicle)
 
     if (statusCode == 200)
     {
-        DynamicJsonDocument jsonDoc(2048);
-        DeserializationError error = deserializeJson(jsonDoc, response);
+        StaticJsonDocument<200> filter;
+        filter["user_profile"]["first_name"] = true;
+        filter["user_profile"]["last_name"] = true;
+
+        // Deserialize the document with the filter
+        StaticJsonDocument<400> jsonDoc;
+        DeserializationError error = deserializeJson(jsonDoc, response, DeserializationOption::Filter(filter));
 
         if (error)
         {
@@ -149,28 +162,29 @@ bool Ab_HTTPClient::postDriverAPI(String card_no, String vehicle)
         }
 
         // Extract data from the JSON response
-        int id = jsonDoc["id"];
-        String name = jsonDoc["name"];
+        // int id = jsonDoc["id"];
+        // String name = jsonDoc["name"];
         JsonObject user_profile = jsonDoc["user_profile"];
         String first_name = user_profile["first_name"];
         String last_name = user_profile["last_name"];
-        String unit = user_profile["unit"];
-        String employee_id = user_profile["employee_id"];
+        // String unit = user_profile["unit"];
+        // String employee_id = user_profile["employee_id"];
+        String driver = first_name + " " + last_name;
+        // // Now you can use the extracted data as needed
+        // Serial.print("ID: ");
+        // Serial.println(id);
+        // Serial.print("Name: ");
+        // Serial.println(name);
+        // Serial.print("First Name: ");
+        // Serial.println(first_name);
+        // Serial.print("Last Name: ");
+        // Serial.println(last_name);
+        // Serial.print("Unit: ");
+        // Serial.println(unit);
+        // Serial.print("Employee ID: ");
+        // Serial.println(employee_id);
+        // strlcpy(driverName, driver, sizeof(name));
 
-        // Now you can use the extracted data as needed
-        Serial.print("ID: ");
-        Serial.println(id);
-        Serial.print("Name: ");
-        Serial.println(name);
-        Serial.print("First Name: ");
-        Serial.println(first_name);
-        Serial.print("Last Name: ");
-        Serial.println(last_name);
-        Serial.print("Unit: ");
-        Serial.println(unit);
-        Serial.print("Employee ID: ");
-        Serial.println(employee_id);
-        driverName = first_name + " " + last_name;
         return true; // Return true for successful operation
     }
     else
@@ -183,7 +197,7 @@ bool Ab_HTTPClient::postDriverAPI(String card_no, String vehicle)
 bool Ab_HTTPClient::postTaskAPI(String flight_id, String step, String vehicle)
 {
     Serial.println("postTaskAPI");
-    DynamicJsonDocument payloadDoc(64);
+    StaticJsonDocument<64> payloadDoc;
     JsonObject payload = payloadDoc.to<JsonObject>();
     payload["flight_id"] = flight_id;
     payload["step"] = step;
