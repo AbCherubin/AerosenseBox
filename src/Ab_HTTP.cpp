@@ -3,7 +3,7 @@
 void Ab_HTTPClient::getTimeFromAPI()
 {
     Serial.println("getTimeFromAPI");
-
+    GSMClient gsmClient;
     HttpClient client = HttpClient(gsmClient, timeServerAddress, timeServerPort);
     client.setTimeout(1000);
     client.get(timeServerAPI);
@@ -22,6 +22,7 @@ void Ab_HTTPClient::getTimeFromAPI()
 
         StaticJsonDocument<400> jsonDoc;
         DeserializationError error = deserializeJson(jsonDoc, response, DeserializationOption::Filter(filter));
+        serializeJsonPretty(jsonDoc, Serial);
 
         if (!error)
         {
@@ -33,7 +34,6 @@ void Ab_HTTPClient::getTimeFromAPI()
             Serial.println("JSON parsing error: " + String(error.c_str()));
         }
     }
-
     // Print the extracted values
     Serial.print("Unixtime: ");
     Serial.println(unixtime);
@@ -42,7 +42,7 @@ void Ab_HTTPClient::getTimeFromAPI()
 void Ab_HTTPClient::getVehicleAPI(String id)
 {
     Serial.println("getVehicleAPI");
-
+    GSMClient gsmClient;
     HttpClient client = HttpClient(gsmClient, itafmServerAddress, itafmServerPort);
 
     client.setTimeout(3000);
@@ -50,7 +50,6 @@ void Ab_HTTPClient::getVehicleAPI(String id)
 
     client.beginRequest();
     client.get(apiUrl);
-
     client.sendHeader("Authorization", "Bearer " + SERVER_TOKEN);
     client.sendHeader("Content-Type", "application/json");
     client.endRequest();
@@ -59,14 +58,13 @@ void Ab_HTTPClient::getVehicleAPI(String id)
     Serial.println(apiUrl);
     Serial.print("Status Code: ");
     Serial.println(statusCode);
-    Serial.println(response);
+    // Serial.println(response);
     client.stop();
     if (statusCode == 200)
     {
-        // DynamicJsonDocument jsonDoc(2048);
-        // DeserializationError error = deserializeJson(jsonDoc, response);
+
         StaticJsonDocument<100> filter;
-        filter["results"][0]["name"] = true;
+        filter["results"][0]["vehicle"]["name"] = true;
         // Parse the JSON response
 
         StaticJsonDocument<200> jsonDoc;
@@ -81,7 +79,7 @@ void Ab_HTTPClient::getVehicleAPI(String id)
 
         // Extract data from the JSON response
         JsonObject results = jsonDoc["results"][0]; // Assuming there's only one result
-
+        // serializeJsonPretty(jsonDoc, Serial);
         if (!results.isNull())
         {
             // long id = results["id"];
@@ -123,6 +121,7 @@ bool Ab_HTTPClient::postDriverAPI(String card_no, String vehicle)
 
     String payloadString;
     serializeJson(payload, payloadString);
+    GSMClient gsmClient;
     HttpClient client = HttpClient(gsmClient, itafmServerAddress, itafmServerPort);
     String apiUrl = post_vehicle_card_api;
     client.beginRequest();
@@ -132,10 +131,7 @@ bool Ab_HTTPClient::postDriverAPI(String card_no, String vehicle)
     client.sendHeader("Content-Length", payloadString.length());
     client.beginBody();
     client.print(payloadString);
-    Serial.println(payloadString);
     client.endRequest();
-
-    Serial.println("endRequest");
     int statusCode = client.responseStatusCode();
     String response = client.responseBody();
     client.stop();
@@ -143,7 +139,6 @@ bool Ab_HTTPClient::postDriverAPI(String card_no, String vehicle)
     Serial.print("Status Code: ");
     Serial.println(statusCode);
     Serial.println(response);
-
     if (statusCode == 200)
     {
         StaticJsonDocument<200> filter;
@@ -153,6 +148,7 @@ bool Ab_HTTPClient::postDriverAPI(String card_no, String vehicle)
         // Deserialize the document with the filter
         StaticJsonDocument<400> jsonDoc;
         DeserializationError error = deserializeJson(jsonDoc, response, DeserializationOption::Filter(filter));
+        // serializeJsonPretty(jsonDoc, Serial);
 
         if (error)
         {
@@ -169,7 +165,8 @@ bool Ab_HTTPClient::postDriverAPI(String card_no, String vehicle)
         String last_name = user_profile["last_name"];
         // String unit = user_profile["unit"];
         // String employee_id = user_profile["employee_id"];
-        String driver = first_name + " " + last_name;
+        driverName = first_name + " " + last_name;
+        Serial.println(driverName);
         // // Now you can use the extracted data as needed
         // Serial.print("ID: ");
         // Serial.println(id);
@@ -205,6 +202,7 @@ bool Ab_HTTPClient::postTaskAPI(String flight_id, String step, String vehicle)
 
     String payloadString;
     serializeJson(payload, payloadString);
+    GSMClient gsmClient;
     HttpClient client = HttpClient(gsmClient, itafmServerAddress, itafmServerPort);
     String apiUrl = post_vehicle_task_api;
     client.beginRequest();

@@ -19,6 +19,7 @@ public:
     bool isConnected();
     void reconnect();
     void subscribe(const char *topic);
+    void disconnect();
     GSMClient gsmClient;
 
 private:

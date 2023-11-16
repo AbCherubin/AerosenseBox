@@ -37,8 +37,6 @@ TaskHandle_t sensors;
 
 Ab_HTTPClient httpClient;
 
-unsigned long lastReconnectAttempt = 0;
-
 long lastMqttCounter = 0;
 
 long lastEngineCounter = 0;
@@ -49,6 +47,8 @@ int engineSecondCount = 0;
 
 int engine_flag = 0;
 
+bool HTTP_sending = false;
+bool MQTT_sending = false;
 void subscribeTopics(String GSEID)
 {
   String topic1 = "client/aerosensebox/" + GSEID;
@@ -186,8 +186,14 @@ void Sensors(void *pvParameters)
       box.rfid = String(wg.getCode(), HEX);
       box.rfid.toUpperCase();
       Serial.println(box.rfid);
+
       if (box.GSEID != "")
       {
+        while (MQTT_sending)
+        {
+          delay(100);
+        }
+        HTTP_sending = true;
         if (httpClient.postDriverAPI(box.rfid, box.GSEID))
         {
           box.driver = httpClient.driverName;
@@ -196,6 +202,7 @@ void Sensors(void *pvParameters)
         {
           Serial.println("PostDriverAPI Unsuceessful");
         }
+        HTTP_sending = false;
       }
       else
       {
@@ -213,7 +220,13 @@ void loop()
   if (!mqttClient.isConnected())
   {
     Serial.println("MQTT NOT CONNECTED!");
+    while (HTTP_sending)
+    {
+      delay(100);
+    }
+    MQTT_sending = true;
     mqttClient.reconnect();
+    MQTT_sending = false;
     isSubscribeTopics = false;
   }
   else
@@ -254,9 +267,9 @@ void loop()
       }
     }
 
-    if (now - lastMqttCounter > MQTT_interval || lastMqttCounter == 0)
+    if ((now - lastMqttCounter > MQTT_interval || lastMqttCounter == 0) && !HTTP_sending)
     {
-
+      MQTT_sending = true;
       lastMqttCounter = now;
 
       if (GPS.available())
@@ -277,7 +290,6 @@ void loop()
       box.signalStrength = Network.getSignalStrength();
       box.engineTemperatureADC = SHT40.readTemperature();
       box.engineMinutes = String(box.engineMinCount);
-      Serial.println(box.distanceCount, 3);
       box.distance = String(int(box.distanceCount));
       if (acc.isAccReady())
       {
@@ -287,8 +299,8 @@ void loop()
       String mqttPayload = box.getMqttPayload();
       mqttClient.publish(box.MQTT_SERVER_MAIN_TOPIC, mqttPayload.c_str());
       Serial.println(mqttPayload);
+      MQTT_sending = false;
       // client.publish("updatebox", "Hello world");
-      delay(100);
     }
   }
   mqttClient.loop();

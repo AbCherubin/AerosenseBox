@@ -20,6 +20,10 @@ bool Ab_MQTTClient::isConnected()
 {
     return mqttClient.connected();
 }
+void Ab_MQTTClient::disconnect()
+{
+    mqttClient.disconnect();
+}
 void Ab_MQTTClient::loop()
 {
     mqttClient.loop();
@@ -231,7 +235,7 @@ void Ab_MQTTClient::handleAerosensebox(char *topic, byte *payload, unsigned int 
                 box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS, box.distanceCount);
                 Serial.print("distance Meter: ");
                 Serial.println(box.distanceCount);
-                box.distance = String(box.distanceCount, 3);
+                box.distance = String(int(box.distanceCount));
                 String mqttPayload = box.getMqttPayload();
                 mqttClient.publish(box.MQTT_SERVER_MAIN_TOPIC, mqttPayload.c_str());
                 Serial.println(mqttPayload);

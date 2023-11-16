@@ -22,8 +22,6 @@ public:
     bool setTime = false;
 
 private:
-    GSMClient gsmClient;
-
     const char *timeServerAddress = "213.188.196.246";
     int timeServerPort = 80;
     const char *timeServerAPI = "/api/timezone/Asia/Bangkok";
