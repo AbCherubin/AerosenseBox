@@ -191,7 +191,7 @@ bool Ab_WIEGAND::DoWiegandConversion()
 				_bitCount = 0;
 				_cardTemp = 0;
 				_cardTempHigh = 0;
-				_code = cardID;
+				_code = __builtin_bswap32(cardID);
 				return true;
 			}
 		}

@@ -100,7 +100,7 @@ int GSMClient::connect(const char *host, uint16_t port, int32_t timeout)
         if (!ClientSocketInfo[i].itUsing)
         {
             ClientSocketInfo[i].itUsing = true;
-
+            this->sock_id = i;
             GSM_LOG_I("Socket %d free !", i);
             break;
         }
@@ -382,8 +382,8 @@ size_t GSMClient::write(const uint8_t *buf, size_t size)
     if (flags & GSM_CLIENT_SEND_SUCCESS_FLAG)
     {
         GSM_LOG_I("Socket %d send data success", this->sock_id);
-        Serial.println("send data success");
-        Serial.println(this->sock_id);
+        // Serial.println("send data success");
+        // Serial.println(this->sock_id);
     }
     else if (flags & GSM_CLIENT_SEND_FAIL_FLAG)
     {

@@ -11,10 +11,10 @@ class Ab_HTTPClient
 {
 public:
     void getTimeFromAPI();
-    void getVehicleAPI(String id);
+    void getVehicleAPI(String id, char *itafmServerAddress, int itafmServerPort, String SERVER_TOKEN);
 
-    bool postDriverAPI(String card_no, String vehicle);
-    bool postTaskAPI(String flight_id, String step, String vehicle);
+    bool postDriverAPI(String card_no, String vehicle, char *itafmServerAddress, int itafmServerPort, String SERVER_TOKEN);
+    bool postTaskAPI(String flight_id, String step, String vehicle, char *itafmServerAddress, int itafmServerPort, String SERVER_TOKEN);
     void printLocalTime();
     String vehicleID = "";
     String driverName = "";
@@ -26,13 +26,9 @@ private:
     int timeServerPort = 80;
     const char *timeServerAPI = "/api/timezone/Asia/Bangkok";
 
-    const char *itafmServerAddress = "110.77.148.104";
-    int itafmServerPort = 14111;
     const char *get_vehicle_api = "/api/asset/?name__icontains=";
     const char *post_vehicle_card_api = "/api/vehicle-card/";
     const char *post_vehicle_task_api = "/api/vehicle-task/";
-    //  String SERVER_TOKEN = "voK6xlHqH49roiFhrqq9WCpxXetiOu"; //BAC
-    String SERVER_TOKEN = "6qLpIYnEMk71czcVbSeDuLrTFf9uGQ"; // PB
 };
 
 #endif

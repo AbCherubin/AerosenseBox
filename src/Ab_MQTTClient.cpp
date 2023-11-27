@@ -30,12 +30,25 @@ void Ab_MQTTClient::loop()
 }
 void Ab_MQTTClient::publish(const char *topic, const char *payload)
 {
-    mqttClient.publish(topic, payload);
+    bool checker = mqttClient.publish(topic, payload);
+    Serial.println(payload);
+    Serial.println(checker);
 }
-
-void Ab_MQTTClient::subscribe(const char *topic)
+bool Ab_MQTTClient::subscribeWithRetry(const char *topic, int maxAttempts, int retryDelay)
 {
-    mqttClient.subscribe(topic);
+    for (int attempts = 0; attempts < maxAttempts; ++attempts)
+    {
+        if (mqttClient.subscribe(topic))
+        {
+            Serial.println("Successfully subscribed to topic: " + String(topic));
+            return true; // Exit the function if subscribed successfully
+        }
+
+        Serial.println("Failed to subscribe to topic. Retrying...");
+        delay(retryDelay);
+    }
+    Serial.println("Failed to subscribe after multiple attempts. Exiting.");
+    return false;
 }
 
 void Ab_MQTTClient::reconnect()
@@ -265,6 +278,35 @@ void Ab_MQTTClient::handleFlightCheck(char *topic, byte *payload, unsigned int l
 {
     LCD.recheck_flight_list = true;
 }
+void Ab_MQTTClient::handleAuthentication(char *topic, byte *payload, unsigned int length)
+{
+    StaticJsonDocument<256> jsonDataFromServer;
+    DeserializationError error = deserializeJson(jsonDataFromServer, payload, length);
+
+    if (error)
+    {
+        Serial.print(F("deserializeJson() failed: "));
+        Serial.println(error.f_str());
+        return;
+    }
+
+    String level = jsonDataFromServer["level"];
+
+    if (level != "success")
+    {
+
+        Serial.println("Error");
+        return;
+    }
+
+    String firstName = jsonDataFromServer["first_name"];
+    String lastName = jsonDataFromServer["last_name"];
+    String vehicle = jsonDataFromServer["vehicle"];
+    String empID = jsonDataFromServer["employee_id"];
+    Serial.println("level " + level);
+
+    isAuthenSuccess = true;
+}
 
 void Ab_MQTTClient::callback(char *topic, byte *payload, unsigned int length)
 {
@@ -288,6 +330,10 @@ void Ab_MQTTClient::callback(char *topic, byte *payload, unsigned int length)
     else if (strncmp(topic, "client/aerosensebox/", strlen("client/aerosensebox/")) == 0)
     {
         handleAerosensebox(topic, payload, length);
+    }
+    else if (strncmp(topic, "client/authentication/", strlen("client/authentication/")) == 0)
+    {
+        handleAuthentication(topic, payload, length);
     }
     else if (strcmp(topic, "client/flight/check/") == 0)
     {

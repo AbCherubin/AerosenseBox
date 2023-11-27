@@ -8,14 +8,14 @@
 #include <Ab_AccelerometerLib.h>
 #include <Ab_MQTTClient.h>
 #include <Ab_BoxParameters.h>
-#include <Wiegand.h>
+#include <Ab_Wiegand.h>
 #include <ArduinoJson.h>
 #include <Ab_HTTP.h>
 
 #define pincr1 32
 #define pincr2 33
 
-WIEGAND wg;
+Ab_WIEGAND wg;
 SerialLCD LCD;
 AccelerometerLib acc(12345);
 
@@ -32,6 +32,12 @@ const char *mqttUsername = MQTT_USER;
 const char *mqttPassword = MQTT_PASS;
 
 bool isSubscribeTopics = false;
+bool isSendingAuthen = false;
+String authenPayload = "";
+String SERVER_TOKEN = _SERVER_TOKEN;
+unsigned long card_previousMillis = 0;
+const long card_duration = 300;
+
 Ab_MQTTClient mqttClient(mqtt_id, broker, port, mqttUsername, mqttPassword);
 TaskHandle_t sensors;
 
@@ -47,12 +53,11 @@ int engineSecondCount = 0;
 
 int engine_flag = 0;
 
-bool HTTP_sending = false;
-bool MQTT_sending = false;
 void subscribeTopics(String GSEID)
 {
-  String topic1 = "client/aerosensebox/" + GSEID;
-  String topics[] = {topic1};
+  String boxTopic = "client/aerosensebox/" + GSEID;
+  String authenTopic = "client/authentication/" + GSEID;
+  String topics[] = {boxTopic, authenTopic};
   for (int i = 0; i < sizeof(topics) / sizeof(topics[0]); i++)
   {
     mqttClient.subscribe(topics[i].c_str());
@@ -72,17 +77,31 @@ void setup()
   EEPROM.begin(EEPROM_SIZE);
   box.initialize();
   box.id = mqtt_id;
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, HIGH);
+
   // box.writeLongIntoEEPROM(box.ENGINE_HOURS_ADDRESS, 12345678);
+  // box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS,0);
   acc.setupAccelerometer();
   acc.calibrateSensors(); // Perform calibration once during setup
   box.engineMinCount = box.readLongFromEEPROM(box.ENGINE_HOURS_ADDRESS);
   box.distanceCount = box.readDoubleFromEEPROM(box.DISTANCE_ADDRESS);
   // Initialize the MQTT client
   mqttClient.begin();
+  if (isnan(box.distanceCount))
+  {
+    box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS, 0);
+  }
+  if (isnan(box.engineMinCount))
+  {
+    box.writeLongIntoEEPROM(box.ENGINE_HOURS_ADDRESS, 0);
+  }
   Serial.print("Engine Count (mins) :");
   Serial.println(String(box.engineMinCount));
   Serial.print("box.distanceCount (km) :");
   Serial.println(String(box.distanceCount, 3));
+
   xTaskCreatePinnedToCore(
       Sensors,   /* Task function. */
       "sensors", /* name of task. */
@@ -96,6 +115,16 @@ void setup()
   while (!GPS.begin())
   {
     Serial.println("GPS setup fail");
+    delay(100);
+  }
+  while (box.GSEID == "")
+  {
+    httpClient.getVehicleAPI(mqtt_id, itafmServerAddress, itafmServerPort, SERVER_TOKEN);
+    if (httpClient.vehicleID)
+    {
+      box.GSEID = httpClient.vehicleID;
+      subscribeTopics(box.GSEID);
+    }
     delay(100);
   }
 }
@@ -153,22 +182,22 @@ void Sensors(void *pvParameters)
 
           GPS.curLocationlat = GPS.latitude();
           GPS.curLocationlng = GPS.longitude();
-          Serial.println("GPS");
+          // Serial.println("GPS");
           if (GPS.preLocationlat != 0.0 && GPS.preLocationlng != 0.0)
           {
             double distance = GPS.haversine(GPS.preLocationlat, GPS.preLocationlng, GPS.curLocationlat, GPS.curLocationlng);
             if (distance > GPS.DISTANCE_THRESHOLD)
             {
-              Serial.print("Distance (km): ");
-              Serial.println(distance, 3);
+              // Serial.print("Distance (km): ");
+              // Serial.println(distance, 3);
               box.distanceCount = box.distanceCount + distance;
-              Serial.print("box.distanceCount (km): ");
-              Serial.println(box.distanceCount, 3);
+              //  Serial.print("box.distanceCount (km): ");
+              // Serial.println(box.distanceCount, 3);
               box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS, box.distanceCount);
             }
             else
             {
-              Serial.println("Small movement detected. Ignoring.");
+              // Serial.println("Small movement detected. Ignoring.");
             }
           }
         }
@@ -180,7 +209,21 @@ void Sensors(void *pvParameters)
       lastGPSCounter = 0;
     }
     /////////////////////////////////////////////
+    if (mqttClient.isAuthenSuccess)
+    {
 
+      if (digitalRead(BUZZER_PIN) == HIGH)
+      {
+        digitalWrite(BUZZER_PIN, LOW);
+        card_previousMillis = millis();
+      }
+      unsigned long card_currentMillis = millis();
+      if (card_currentMillis - card_previousMillis >= card_duration)
+      {
+        digitalWrite(BUZZER_PIN, HIGH);
+        mqttClient.isAuthenSuccess = false;
+      }
+    }
     if (wg.available())
     {
       box.rfid = String(wg.getCode(), HEX);
@@ -189,28 +232,28 @@ void Sensors(void *pvParameters)
 
       if (box.GSEID != "")
       {
-        while (MQTT_sending)
-        {
-          delay(100);
-        }
-        HTTP_sending = true;
-        if (httpClient.postDriverAPI(box.rfid, box.GSEID))
-        {
-          box.driver = httpClient.driverName;
-        }
-        else
-        {
-          Serial.println("PostDriverAPI Unsuceessful");
-        }
-        HTTP_sending = false;
+
+        String rfid = box.rfid;
+        String gse = box.GSEID;
+        String payload = "{\"vehicle\":\"" + gse + "\",\"card_no\":\"" + rfid + "\"}";
+        // authenPayload = payload;
+        //  isSendingAuthen = true;
+        mqttClient.publish("server/authentication/", payload.c_str());
+        // mqttClient.loop();
+        //        if (httpClient.postDriverAPI(box.rfid, box.GSEID,itafmServerAddress,itafmServerPort))
+        //        {
+        //          box.driver = httpClient.driverName;
+        //        }
+        //        else
+        //        {
+        //          Serial.println("PostDriverAPI Unsuceessful");
+        //        }
       }
       else
       {
         Serial.println("No GSEID");
       }
     }
-
-    delay(10);
   }
 }
 
@@ -220,27 +263,12 @@ void loop()
   if (!mqttClient.isConnected())
   {
     Serial.println("MQTT NOT CONNECTED!");
-    while (HTTP_sending)
-    {
-      delay(100);
-    }
-    MQTT_sending = true;
     mqttClient.reconnect();
-    MQTT_sending = false;
     isSubscribeTopics = false;
   }
   else
   {
 
-    if (box.GSEID == "")
-    {
-      httpClient.getVehicleAPI(mqtt_id);
-      if (httpClient.vehicleID)
-      {
-        box.GSEID = httpClient.vehicleID;
-        subscribeTopics(box.GSEID);
-      }
-    }
     if (!isSubscribeTopics && box.GSEID != "")
     {
       subscribeTopics(box.GSEID);
@@ -267,9 +295,8 @@ void loop()
       }
     }
 
-    if ((now - lastMqttCounter > MQTT_interval || lastMqttCounter == 0) && !HTTP_sending)
+    if ((now - lastMqttCounter > MQTT_interval || lastMqttCounter == 0))
     {
-      MQTT_sending = true;
       lastMqttCounter = now;
 
       if (GPS.available())
@@ -299,9 +326,8 @@ void loop()
       String mqttPayload = box.getMqttPayload();
       mqttClient.publish(box.MQTT_SERVER_MAIN_TOPIC, mqttPayload.c_str());
       Serial.println(mqttPayload);
-      MQTT_sending = false;
-      // client.publish("updatebox", "Hello world");
     }
+
+    mqttClient.loop();
   }
-  mqttClient.loop();
 }

@@ -18,9 +18,10 @@ public:
     void publish(const char *topic, const char *payload);
     bool isConnected();
     void reconnect();
-    void subscribe(const char *topic);
+    bool subscribeWithRetry(const char *topic, int maxAttempts, int retryDelay);
     void disconnect();
     GSMClient gsmClient;
+    bool isAuthenSuccess = false;
 
 private:
     PubSubClient mqttClient;
@@ -36,6 +37,7 @@ private:
     void handleFlightCheck(char *topic, byte *payload, unsigned int length);
     void handleVehicleStatus(char *topic, byte *payload, unsigned int length);
     void handleAerosensebox(char *topic, byte *payload, unsigned int length);
+    void handleAuthentication(char *topic, byte *payload, unsigned int length);
 };
 
 #endif

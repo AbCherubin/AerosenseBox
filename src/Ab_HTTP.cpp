@@ -39,7 +39,7 @@ void Ab_HTTPClient::getTimeFromAPI()
     Serial.println(unixtime);
 }
 
-void Ab_HTTPClient::getVehicleAPI(String id)
+void Ab_HTTPClient::getVehicleAPI(String id, char *itafmServerAddress, int itafmServerPort, String SERVER_TOKEN)
 {
     Serial.println("getVehicleAPI");
     GSMClient gsmClient;
@@ -111,7 +111,7 @@ void Ab_HTTPClient::getVehicleAPI(String id)
     }
 }
 
-bool Ab_HTTPClient::postDriverAPI(String card_no, String vehicle)
+bool Ab_HTTPClient::postDriverAPI(String card_no, String vehicle, char *itafmServerAddress, int itafmServerPort, String SERVER_TOKEN)
 {
     Serial.println("postDriverAPI");
     StaticJsonDocument<64> payloadDoc;
@@ -191,7 +191,7 @@ bool Ab_HTTPClient::postDriverAPI(String card_no, String vehicle)
     }
 }
 
-bool Ab_HTTPClient::postTaskAPI(String flight_id, String step, String vehicle)
+bool Ab_HTTPClient::postTaskAPI(String flight_id, String step, String vehicle, char *itafmServerAddress, int itafmServerPort, String SERVER_TOKEN)
 {
     Serial.println("postTaskAPI");
     StaticJsonDocument<64> payloadDoc;
