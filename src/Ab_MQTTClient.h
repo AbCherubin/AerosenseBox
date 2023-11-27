@@ -16,8 +16,10 @@ public:
     void begin();
     void loop();
     void publish(const char *topic, const char *payload);
+    void subscribe(const char *topic);
     bool isConnected();
     void reconnect();
+    bool publishWithRetry(const char *topic, const char *payload, int maxAttempts, int retryDelay);
     bool subscribeWithRetry(const char *topic, int maxAttempts, int retryDelay);
     void disconnect();
     GSMClient gsmClient;

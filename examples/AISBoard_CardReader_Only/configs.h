@@ -1,12 +1,16 @@
 
 //------------------------------------------------------------------------------------//
-#define MQTT_CLIENT_ID "75301726" //***Important***
+#define MQTT_CLIENT_ID "5555555" //***Important***
 //------------------------------------------------------------------------------------//
 
-#define MQTT_GATEWAY "itafm.aerothai.biz"
-#define MQTT_HOST_PORT 15121
-// #define MQTT_GATEWAY "110.77.148.104"
-// #define MQTT_HOST_PORT 14883
+// Pro //
+// #define MQTT_GATEWAY "itafm.aerothai.biz"
+// #define MQTT_HOST_PORT 15121
+
+// DEV //
+#define MQTT_GATEWAY "110.77.148.104"
+#define MQTT_HOST_PORT 14883
+
 #define MQTT_USER MQTT_CLIENT_ID
 #define MQTT_PASS MQTT_CLIENT_ID
 #define MQTT_TIMEOUT 10000
@@ -15,9 +19,15 @@
 
 // HTTP Config
 char *itafmServerAddress = "110.77.148.104";
-int itafmServerPort = 15111;
-// int itafmServerPort = 14111;
-#define _SERVER_TOKEN "jBzRSfACZpvCunCPzMliG5Xi1mp4pH"
+
+// DEV //
+int itafmServerPort = 14111;
+#define _SERVER_TOKEN "6qLpIYnEMk71czcVbSeDuLrTFf9uGQ"
+
+// Pro //
+// int itafmServerPort = 15111;
+// #define _SERVER_TOKEN "jBzRSfACZpvCunCPzMliG5Xi1mp4pH"
+
 //------------------------------------------------------------------------------------//
 //-------------------------Input/output parameter-------------------------------------//
 //------------------------------------------------------------------------------------//

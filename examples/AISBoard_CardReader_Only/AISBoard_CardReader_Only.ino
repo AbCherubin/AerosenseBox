@@ -32,8 +32,6 @@ const char *mqttUsername = MQTT_USER;
 const char *mqttPassword = MQTT_PASS;
 
 bool isSubscribeTopics = false;
-bool isSendingAuthen = false;
-String authenPayload = "";
 String SERVER_TOKEN = _SERVER_TOKEN;
 unsigned long card_previousMillis = 0;
 const long card_duration = 300;
@@ -58,11 +56,20 @@ void subscribeTopics(String GSEID)
   String boxTopic = "client/aerosensebox/" + GSEID;
   String authenTopic = "client/authentication/" + GSEID;
   String topics[] = {boxTopic, authenTopic};
+  int maxAttempts = 5;
+  int retryDelay = 100;
   for (int i = 0; i < sizeof(topics) / sizeof(topics[0]); i++)
   {
-    mqttClient.subscribe(topics[i].c_str());
-    Serial.print("Subscribed to topic: ");
-    Serial.println(topics[i]);
+    if (mqttClient.subscribeWithRetry(topics[i].c_str(), maxAttempts, retryDelay))
+    {
+      Serial.print("Subscribed to topic: ");
+      Serial.println(topics[i]);
+    }
+    else
+    {
+      isSubscribeTopics = false;
+      return;
+    }
   }
   isSubscribeTopics = true;
 }
@@ -226,33 +233,18 @@ void Sensors(void *pvParameters)
     }
     if (wg.available())
     {
+      String gse = box.GSEID;
+      String authenTopic = "client/authentication/" + gse;
+      mqttClient.subscribe(authenTopic.c_str());
       box.rfid = String(wg.getCode(), HEX);
       box.rfid.toUpperCase();
+      String rfid = box.rfid;
       Serial.println(box.rfid);
 
-      if (box.GSEID != "")
-      {
-
-        String rfid = box.rfid;
-        String gse = box.GSEID;
-        String payload = "{\"vehicle\":\"" + gse + "\",\"card_no\":\"" + rfid + "\"}";
-        // authenPayload = payload;
-        //  isSendingAuthen = true;
-        mqttClient.publish("server/authentication/", payload.c_str());
-        // mqttClient.loop();
-        //        if (httpClient.postDriverAPI(box.rfid, box.GSEID,itafmServerAddress,itafmServerPort))
-        //        {
-        //          box.driver = httpClient.driverName;
-        //        }
-        //        else
-        //        {
-        //          Serial.println("PostDriverAPI Unsuceessful");
-        //        }
-      }
-      else
-      {
-        Serial.println("No GSEID");
-      }
+      String payload = "{\"vehicle\":\"" + gse + "\",\"card_no\":\"" + rfid + "\"}";
+      int maxAttempts = 3;
+      int retryDelay = 100;
+      mqttClient.publishWithRetry("server/authentication/", payload.c_str(), maxAttempts, retryDelay);
     }
   }
 }
@@ -266,14 +258,12 @@ void loop()
     mqttClient.reconnect();
     isSubscribeTopics = false;
   }
+  else if (!isSubscribeTopics)
+  {
+    subscribeTopics(box.GSEID);
+  }
   else
   {
-
-    if (!isSubscribeTopics && box.GSEID != "")
-    {
-      subscribeTopics(box.GSEID);
-    }
-
     long now = millis();
     if (box.engineStateADC == "FF")
     {

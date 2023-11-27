@@ -31,14 +31,35 @@ void Ab_MQTTClient::loop()
 void Ab_MQTTClient::publish(const char *topic, const char *payload)
 {
     bool checker = mqttClient.publish(topic, payload);
-    Serial.println(payload);
+    // Serial.println(checker);
+}
+bool Ab_MQTTClient::publishWithRetry(const char *topic, const char *payload, int maxAttempts, int retryDelay)
+{
+    for (int attempts = 0; attempts < maxAttempts; ++attempts)
+    {
+        if (mqttClient.publish(topic, payload) && mqttClient.connected())
+        {
+            Serial.println("Successfully published to topic: " + String(topic));
+
+            return true; // Exit the function if subscribed successfully
+        }
+
+        Serial.println("Failed to published to topic. Retrying...");
+        delay(retryDelay);
+    }
+    Serial.println("Failed to published after multiple attempts. Exiting.");
+    return false;
+}
+void Ab_MQTTClient::subscribe(const char *topic)
+{
+    bool checker = mqttClient.subscribe(topic);
     Serial.println(checker);
 }
 bool Ab_MQTTClient::subscribeWithRetry(const char *topic, int maxAttempts, int retryDelay)
 {
     for (int attempts = 0; attempts < maxAttempts; ++attempts)
     {
-        if (mqttClient.subscribe(topic))
+        if (mqttClient.subscribe(topic) && mqttClient.connected())
         {
             Serial.println("Successfully subscribed to topic: " + String(topic));
             return true; // Exit the function if subscribed successfully

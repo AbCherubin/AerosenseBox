@@ -3,6 +3,9 @@
     "ostream": "cpp",
     "cstddef": "cpp",
     "xutility": "cpp",
-    "cmath": "cpp"
+    "cmath": "cpp",
+    "iosfwd": "cpp",
+    "xlocale": "cpp",
+    "xstring": "cpp"
   }
 }
