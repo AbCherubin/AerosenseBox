@@ -100,14 +100,6 @@ int GSMClient::connect(const char *host, uint16_t port, int32_t timeout)
         if (!ClientSocketInfo[i].itUsing)
         {
             ClientSocketInfo[i].itUsing = true;
-            if (port == 14111)
-            {
-                this->sock_id = 1;
-            }
-            else
-            {
-                this->sock_id = 0;
-            }
 
             GSM_LOG_I("Socket %d free !", i);
             break;
