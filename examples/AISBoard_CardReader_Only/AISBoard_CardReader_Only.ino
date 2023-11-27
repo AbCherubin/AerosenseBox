@@ -31,10 +31,10 @@ const char *broker = MQTT_GATEWAY;
 const char *mqttUsername = MQTT_USER;
 const char *mqttPassword = MQTT_PASS;
 
-bool isSubscribeTopics = false;
 String SERVER_TOKEN = _SERVER_TOKEN;
 unsigned long card_previousMillis = 0;
 const long card_duration = 300;
+bool isSubscribeTopics = false;
 
 Ab_MQTTClient mqttClient(mqtt_id, broker, port, mqttUsername, mqttPassword);
 TaskHandle_t sensors;
@@ -141,7 +141,6 @@ void Sensors(void *pvParameters)
 
   for (;;)
   {
-
     // Engine Start-Stop
     long now = millis();
     engine_flag = digitalRead(ADC4_pin);
@@ -235,7 +234,7 @@ void Sensors(void *pvParameters)
     {
       String gse = box.GSEID;
       String authenTopic = "client/authentication/" + gse;
-      mqttClient.subscribe(authenTopic.c_str());
+      // mqttClient.subscribe(authenTopic.c_str());
       box.rfid = String(wg.getCode(), HEX);
       box.rfid.toUpperCase();
       String rfid = box.rfid;
@@ -289,6 +288,7 @@ void loop()
     {
       lastMqttCounter = now;
 
+      mqttClient.loop();
       if (GPS.available())
       {
         box.latitude = String(GPS.latitude(), 6);
@@ -317,7 +317,7 @@ void loop()
       mqttClient.publish(box.MQTT_SERVER_MAIN_TOPIC, mqttPayload.c_str());
       Serial.println(mqttPayload);
     }
-
-    mqttClient.loop();
   }
+  mqttClient.loop();
+  delay(10);
 }

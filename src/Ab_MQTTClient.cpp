@@ -12,9 +12,9 @@ void Ab_MQTTClient::begin()
     }
 
     mqttClient.setServer(broker, port);
+    mqttClient.connect(id.c_str(), username, password);
     mqttClient.setCallback([this](char *topic, byte *payload, unsigned int length)
                            { this->callback(topic, payload, length); });
-    mqttClient.connect(id.c_str(), username, password);
 }
 bool Ab_MQTTClient::isConnected()
 {
@@ -81,7 +81,9 @@ void Ab_MQTTClient::reconnect()
         if (mqttClient.connect(id.c_str(), username, password))
         {
             Serial.println("connected");
-
+            delay(100);
+            mqttClient.setCallback([this](char *topic, byte *payload, unsigned int length)
+                                   { this->callback(topic, payload, length); });
             attemptCount = 0;
         }
         else
