@@ -81,10 +81,12 @@ void Ab_MQTTClient::reconnect()
         if (mqttClient.connect(id.c_str(), username, password))
         {
             Serial.println("connected");
+
             delay(100);
             mqttClient.setCallback([this](char *topic, byte *payload, unsigned int length)
                                    { this->callback(topic, payload, length); });
             attemptCount = 0;
+            delay(10);
         }
         else
         {
@@ -336,11 +338,6 @@ void Ab_MQTTClient::callback(char *topic, byte *payload, unsigned int length)
     Serial.print("Message arrived [");
     Serial.print(topic);
     Serial.print("] ");
-    for (unsigned int i = 0; i < length; i++)
-    {
-        Serial.print((char)payload[i]);
-    }
-    Serial.println();
 
     if (strncmp(topic, "client/response/flight/short/", strlen("client/response/flight/short/")) == 0)
     {
