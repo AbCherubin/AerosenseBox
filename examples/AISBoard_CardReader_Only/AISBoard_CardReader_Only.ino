@@ -189,10 +189,10 @@ void Sensors(void *pvParameters)
           GPS.curLocationlat = GPS.latitude();
           GPS.curLocationlng = GPS.longitude();
           // Serial.println("GPS");
-          if (GPS.preLocationlat != 0.0 && GPS.preLocationlng != 0.0)
+          if (GPS.preLocationlat > 0 && GPS.preLocationlng > 0)
           {
             double distance = GPS.haversine(GPS.preLocationlat, GPS.preLocationlng, GPS.curLocationlat, GPS.curLocationlng);
-            if (distance > GPS.DISTANCE_THRESHOLD)
+            if (distance > GPS.DISTANCE_MIN_THRESHOLD && distance < GPS.DISTANCE_MAX_THRESHOLD)
             {
               // Serial.print("Distance (km): ");
               // Serial.println(distance, 3);
@@ -253,6 +253,7 @@ void loop()
 
   if (!mqttClient.isConnected())
   {
+    mqttClient.disconnect();
     Serial.println("MQTT NOT CONNECTED!");
     mqttClient.reconnect();
     isSubscribeTopics = false;

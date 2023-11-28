@@ -6,6 +6,13 @@
     "cmath": "cpp",
     "iosfwd": "cpp",
     "xlocale": "cpp",
-    "xstring": "cpp"
+    "xstring": "cpp",
+    "functional": "cpp",
+    "memory": "cpp",
+    "tuple": "cpp",
+    "type_traits": "cpp",
+    "utility": "cpp",
+    "xmemory0": "cpp",
+    "xtr1common": "cpp"
   }
 }

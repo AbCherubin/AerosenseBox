@@ -37,10 +37,14 @@ public:
     double haversine(double lat1, double lon1, double lat2, double lon2);
     double preLocationlat;
     double preLocationlng;
+    double pretime;
+
     double curLocationlat;
     double curLocationlng;
+    double curtime;
 
-    float DISTANCE_THRESHOLD = 0.005;
+    float DISTANCE_MIN_THRESHOLD = 0.005;
+    float DISTANCE_MAX_THRESHOLD = 0.2;
 };
 
 extern GPSClass GPS;

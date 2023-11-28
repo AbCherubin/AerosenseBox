@@ -33,7 +33,7 @@
 
 // MQTT_SOCKET_TIMEOUT: socket timeout interval in Seconds. Override with setSocketTimeout()
 #ifndef MQTT_SOCKET_TIMEOUT
-#define MQTT_SOCKET_TIMEOUT 30
+#define MQTT_SOCKET_TIMEOUT 15
 #endif
 
 // MQTT_MAX_TRANSFER_SIZE : limit how much data is passed to the network client
