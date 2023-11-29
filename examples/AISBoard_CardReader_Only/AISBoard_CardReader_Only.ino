@@ -182,23 +182,28 @@ void Sensors(void *pvParameters)
 
         if (GPS.available())
         {
-          lastGPSCounter = now;
-          GPS.preLocationlat = GPS.curLocationlat;
-          GPS.preLocationlng = GPS.curLocationlng;
-
-          GPS.curLocationlat = GPS.latitude();
-          GPS.curLocationlng = GPS.longitude();
-          // Serial.println("GPS");
-          if (GPS.preLocationlat > 0 && GPS.preLocationlng > 0)
+          double GPS_latitude = GPS.latitude();
+          double GPS_longitude = GPS.longitude();
+          if (GPS_latitude > GPS.LATITUDE_MIN_THRESHOLD && GPS_longitude > GPS.LONGITUDE_MIN_THRESHOLD &&
+              GPS_latitude < GPS.LATITUDE_MAX_THRESHOLD && GPS_longitude < GPS.LONGITUDE_MAX_THRESHOLD)
           {
+            lastGPSCounter = now;
+            GPS.preLocationlat = GPS.curLocationlat;
+            GPS.preLocationlng = GPS.curLocationlng;
+
+            GPS.curLocationlat = GPS_latitude;
+            GPS.curLocationlng = GPS_longitude;
+
             double distance = GPS.haversine(GPS.preLocationlat, GPS.preLocationlng, GPS.curLocationlat, GPS.curLocationlng);
             if (distance > GPS.DISTANCE_MIN_THRESHOLD && distance < GPS.DISTANCE_MAX_THRESHOLD)
             {
               // Serial.print("Distance (km): ");
               // Serial.println(distance, 3);
-              box.distanceCount = box.distanceCount + distance;
-              //  Serial.print("box.distanceCount (km): ");
+
+              // Serial.print("box.distanceCount (km): ");
               // Serial.println(box.distanceCount, 3);
+
+              box.distanceCount += distance;
               box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS, box.distanceCount);
             }
             else

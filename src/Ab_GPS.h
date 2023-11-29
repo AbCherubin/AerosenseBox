@@ -43,8 +43,14 @@ public:
     double curLocationlng;
     double curtime;
 
+    int LATITUDE_MIN_THRESHOLD = 5;
+    int LATITUDE_MAX_THRESHOLD = 21;
+
+    int LONGITUDE_MIN_THRESHOLD = 97;
+    int LONGITUDE_MAX_THRESHOLD = 106;
+
     float DISTANCE_MIN_THRESHOLD = 0.005;
-    float DISTANCE_MAX_THRESHOLD = 0.2;
+    float DISTANCE_MAX_THRESHOLD = 1; // 0.2
 };
 
 extern GPSClass GPS;
