@@ -40,6 +40,7 @@ private:
     void handleVehicleStatus(char *topic, byte *payload, unsigned int length);
     void handleAerosensebox(char *topic, byte *payload, unsigned int length);
     void handleAuthentication(char *topic, byte *payload, unsigned int length);
+    void handleMyassignment(char *topic, byte *payload, unsigned int length);
 };
 
 #endif

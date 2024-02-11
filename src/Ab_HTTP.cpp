@@ -11,8 +11,6 @@ void Ab_HTTPClient::getTimeFromAPI()
     int statusCode = client.responseStatusCode();
     String response = client.responseBody();
     client.stop();
-    Serial.print("Status Code: ");
-    Serial.println(statusCode);
 
     if (statusCode == 200)
     {
@@ -22,7 +20,6 @@ void Ab_HTTPClient::getTimeFromAPI()
 
         StaticJsonDocument<400> jsonDoc;
         DeserializationError error = deserializeJson(jsonDoc, response, DeserializationOption::Filter(filter));
-        serializeJsonPretty(jsonDoc, Serial);
 
         if (!error)
         {
@@ -35,8 +32,6 @@ void Ab_HTTPClient::getTimeFromAPI()
         }
     }
     // Print the extracted values
-    Serial.print("Unixtime: ");
-    Serial.println(unixtime);
 }
 
 void Ab_HTTPClient::getVehicleAPI(String id, char *itafmServerAddress, int itafmServerPort, String SERVER_TOKEN)
@@ -65,6 +60,7 @@ void Ab_HTTPClient::getVehicleAPI(String id, char *itafmServerAddress, int itafm
 
         StaticJsonDocument<100> filter;
         filter["results"][0]["vehicle"]["name"] = true;
+        filter["results"][0]["unit"]["name"] = true;
         // Parse the JSON response
 
         StaticJsonDocument<200> jsonDoc;
@@ -85,8 +81,8 @@ void Ab_HTTPClient::getVehicleAPI(String id, char *itafmServerAddress, int itafm
             // long id = results["id"];
             // String name = results["name"];
             // String issi = results["issi"];
-            // String unitName = results["unit"]["name"];
-            String vehicleName = results["vehicle"]["name"];
+            String _vehicleName = results["vehicle"]["name"];
+            String _unitName = results["unit"]["name"];
             // String vehicleStatus = results["vehicle"]["status"];
 
             // You can now use the extracted data as needed
@@ -96,13 +92,14 @@ void Ab_HTTPClient::getVehicleAPI(String id, char *itafmServerAddress, int itafm
             // Serial.println(name);
             // Serial.print("ISSI: ");
             // Serial.println(issi);
-            // Serial.print("Unit Name: ");
-            // Serial.println(unitName);
+            Serial.print("Unit Name: ");
+            Serial.println(_unitName);
             Serial.print("Vehicle Name: ");
-            Serial.println(vehicleName);
+            Serial.println(_vehicleName);
             // Serial.print("Vehicle Status: ");
             // Serial.println(vehicleStatus);
-            vehicleID = vehicleName;
+            vehicleID = _vehicleName;
+            unitName = _unitName;
         }
         else
         {

@@ -8,32 +8,26 @@
 #include <Ab_AccelerometerLib.h>
 #include <Ab_MQTTClient.h>
 #include <Ab_BoxParameters.h>
-#include <Ab_LCD.h>
-#include <Wiegand.h>
+#include <Ab_Wiegand.h>
 #include <ArduinoJson.h>
 #include <Ab_HTTP.h>
 #include <ESP32Time.h>
-#include <Ab_Bluetooth.h>
-#include <BluetoothSerial.h>
-
-#define LCD_RX 16
-#define LCD_TX 17
 
 #define pincr1 32
 #define pincr2 33
 
-ESP32Time rtc(7 * 3600);
+#define LCD_RX 16
+#define LCD_TX 17
 
-WIEGAND wg;
+Ab_WIEGAND wg;
 SerialLCD LCD;
-Ab_Bluetooth bt;
-BluetoothSerial SerialBT;
-
-#define SerialToLCD Serial2
 AccelerometerLib acc(12345);
 
-#define EEPROM_SIZE 8
+#define EEPROM_SIZE 16
 BoxParameters box;
+
+#define SerialToLCD Serial2
+ESP32Time rtc(7 * 3600);
 
 // MQTT details
 String id = BOX_ID;
@@ -44,13 +38,15 @@ const char *broker = MQTT_GATEWAY;
 const char *mqttUsername = MQTT_USER;
 const char *mqttPassword = MQTT_PASS;
 
+String SERVER_TOKEN = _SERVER_TOKEN;
+unsigned long card_previousMillis = 0;
+const long card_duration = 300;
 bool isSubscribeTopics = false;
+
 Ab_MQTTClient mqttClient(mqtt_id, broker, port, mqttUsername, mqttPassword);
 TaskHandle_t sensors;
 
 Ab_HTTPClient httpClient;
-
-unsigned long lastReconnectAttempt = 0;
 
 long lastMqttCounter = 0;
 
@@ -64,16 +60,28 @@ int engine_flag = 0;
 
 void subscribeTopics(String GSEID)
 {
-  String topic1 = "client/response/flight/short/" + GSEID;
-  String topic2 = "client/flight/check/";
-  String topic3 = "client/vehiclestatus/2P8045";
-  String topic4 = "client/aerosensebox/" + GSEID;
-  String topics[] = {topic1, topic2, topic3, topic4};
+  String boxTopic = "client/aerosensebox/" + GSEID;
+  String authenTopic = "client/authentication/" + GSEID;
+  // String flights = "client/response/flight/short/" + GSEID;
+  String flights = "client/tasklist/" + GSEID;
+  String assignment = "client/myassignment/" + GSEID;
+  String flightCheck = "client/flight/check/";
+  String vehicleStatus = "client/vehiclestatus/2P8045";
+  String topics[] = {boxTopic, authenTopic, flights, assignment};
+  int maxAttempts = 5;
+  int retryDelay = 100;
   for (int i = 0; i < sizeof(topics) / sizeof(topics[0]); i++)
   {
-    mqttClient.subscribe(topics[i].c_str());
-    Serial.print("Subscribed to topic: ");
-    Serial.println(topics[i]);
+    if (mqttClient.subscribeWithRetry(topics[i].c_str(), maxAttempts, retryDelay))
+    {
+      Serial.print("Subscribed to topic: ");
+      Serial.println(topics[i]);
+    }
+    else
+    {
+      isSubscribeTopics = false;
+      return;
+    }
   }
   isSubscribeTopics = true;
 }
@@ -82,28 +90,32 @@ hw_timer_t *My_timer = NULL;
 void IRAM_ATTR onTimer()
 {
   LCD.timer_flag = 1;
-  LCD.Datetime = rtc.getTime("%Y-%m-%d %H:%M:%S");
-  if (LCD.page == 4)
+  if (LCD.page >= 1)
   {
-    if (LCD.job_step < 3)
-    {
-      LCD.job_step++;
-    }
+    Serial.println("timerAlarmDisable");
+    timerDetachInterrupt(My_timer); // Detach the interrupt first
+    timerAlarmDisable(My_timer);    // Disable the timer
   }
-  else
-  {
-    LCD.job_step = 0;
-  }
-  Serial.print(F("Free heap: "));
-  Serial.println(ESP.getFreeHeap());
-  Serial.println(ESP.getMaxAllocHeap());
+
+  //  if (LCD.page == 5)
+  //  {
+  //    if (LCD.job_step < 2)
+  //    {
+  //      LCD.job_step++;
+  //    }
+  //  }
+  //  else
+  //  {
+  //    LCD.job_step = 0;
+  //  }
+  //    Serial.print(F("Free heap: "));
+  //    Serial.println(ESP.getFreeHeap());
 }
 
 void setup()
 {
   Serial.begin(115200);
   SerialToLCD.begin(115200, SERIAL_8N1, LCD_RX, LCD_TX);
-  SerialBT.begin("AeroSense");
   wg.begin(pincr1, pincr2);
   pinMode(ADC4_pin, INPUT); // Input ADC4 Engine Start-Stop
   Wire.begin();
@@ -111,17 +123,35 @@ void setup()
   EEPROM.begin(EEPROM_SIZE);
   box.initialize();
   box.id = mqtt_id;
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+
+  pinMode(BUZZER_LED_PIN, OUTPUT);
+  digitalWrite(BUZZER_LED_PIN, LOW);
+
   // box.writeLongIntoEEPROM(box.ENGINE_HOURS_ADDRESS, 12345678);
+  // box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS,0);
   acc.setupAccelerometer();
   acc.calibrateSensors(); // Perform calibration once during setup
   box.engineMinCount = box.readLongFromEEPROM(box.ENGINE_HOURS_ADDRESS);
   box.distanceCount = box.readDoubleFromEEPROM(box.DISTANCE_ADDRESS);
   // Initialize the MQTT client
+  LCD.popup_reconnecting_on();
   mqttClient.begin();
+  if (isnan(box.distanceCount))
+  {
+    box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS, 0);
+  }
+  if (isnan(box.engineMinCount))
+  {
+    box.writeLongIntoEEPROM(box.ENGINE_HOURS_ADDRESS, 0);
+  }
   Serial.print("Engine Count (mins) :");
   Serial.println(String(box.engineMinCount));
   Serial.print("box.distanceCount (km) :");
   Serial.println(String(box.distanceCount, 3));
+
   xTaskCreatePinnedToCore(
       Sensors,   /* Task function. */
       "sensors", /* name of task. */
@@ -137,19 +167,43 @@ void setup()
     Serial.println("GPS setup fail");
     delay(100);
   }
-  LCD.is4G = (Network.getDeviceIP() != IPAddress(0, 0, 0, 0));
-  LCD.isSensor = acc.isAccReady();
-  LCD.isServer = mqttClient.isConnected();
-  LCD.isRFID = (digitalRead(pincr1) == HIGH || digitalRead(pincr2) == HIGH);
-  LCD.isTemp = (SHT40.readTemperature() != 0.0);
-  LCD.isGPS = GPS.available();
-  LCD.Username = "";
-  LCD.GSEId = "";
-  LCD.Datetime = "";
+
+  while (!httpClient.setTime)
+  {
+    httpClient.getTimeFromAPI();
+    if (httpClient.unixtime)
+    {
+      rtc.setTime(httpClient.unixtime);
+
+      httpClient.setTime = true;
+    }
+    delay(100);
+  }
+
+  while (box.GSEID == "")
+  {
+    httpClient.getVehicleAPI(mqtt_id, itafmServerAddress, itafmServerPort, SERVER_TOKEN);
+    if (httpClient.vehicleID)
+    {
+      box.GSEID = httpClient.vehicleID;
+      LCD.GSEId = httpClient.vehicleID;
+      LCD.unitName = httpClient.unitName;
+      subscribeTopics(box.GSEID);
+    }
+    delay(100);
+  }
+
+  LCD.Datetime = rtc.getTime("%Y-%m-%d %H:%M:%S");
+  Serial.println(LCD.Datetime);
   My_timer = timerBegin(0, 80, true);
   timerAttachInterrupt(My_timer, &onTimer, true);
-  timerAlarmWrite(My_timer, 5 * 1000000, true);
+  timerAlarmWrite(My_timer, 1 * 1000000, true);
   timerAlarmEnable(My_timer);
+  String topic_get_task_assignment = "server/request/get_task_assignment/" + box.GSEID;
+  mqttClient.publish(topic_get_task_assignment.c_str(), "");
+  String topic_tasklist = "server/request/tasklist/" + box.GSEID;
+  mqttClient.publish(topic_tasklist.c_str(), "");
+  LCD.timer_flag = 1;
 }
 
 void Sensors(void *pvParameters)
@@ -158,7 +212,6 @@ void Sensors(void *pvParameters)
   for (;;)
   {
     serial_receive();
-
     switch (LCD.page)
     {
     case 0:
@@ -182,35 +235,10 @@ void Sensors(void *pvParameters)
     default:
       LCD.page0();
     }
-
-    if (SerialBT.connected())
-    {
-      String cmd = SerialBT.readStringUntil('\n');
-      Serial.println(cmd);
-      bt.getDataFromClientDevice(cmd);
-      if (bt.isReadyToSend == true)
-      {
-        switch (bt.page)
-        {
-        case 1:
-          SerialBT.println(bt.req_flight);
-          break;
-        case 2:
-          SerialBT.println(bt.sel_flight);
-          break;
-        case 3:
-          SerialBT.println(bt.job_state);
-          break;
-        default:
-          Serial.println("bt");
-        }
-        bt.isReadyToSend = false;
-      }
-    }
-
     // Engine Start-Stop
     long now = millis();
     engine_flag = digitalRead(ADC4_pin);
+    // engine_flag = 1;
     switch (engine_flag)
     {
     case 1:
@@ -245,30 +273,36 @@ void Sensors(void *pvParameters)
       }
       else if (now - lastGPSCounter > 5000)
       {
+
         if (GPS.available())
         {
-          lastGPSCounter = now;
-          GPS.preLocationlat = GPS.curLocationlat;
-          GPS.preLocationlng = GPS.curLocationlng;
-
-          GPS.curLocationlat = GPS.latitude();
-          GPS.curLocationlng = GPS.longitude();
-          Serial.println("GPS");
-          if (GPS.preLocationlat != 0.0 && GPS.preLocationlng != 0.0)
+          double GPS_latitude = GPS.latitude();
+          double GPS_longitude = GPS.longitude();
+          if (GPS_latitude > GPS.LATITUDE_MIN_THRESHOLD && GPS_longitude > GPS.LONGITUDE_MIN_THRESHOLD &&
+              GPS_latitude < GPS.LATITUDE_MAX_THRESHOLD && GPS_longitude < GPS.LONGITUDE_MAX_THRESHOLD)
           {
+            lastGPSCounter = now;
+            GPS.preLocationlat = GPS.curLocationlat;
+            GPS.preLocationlng = GPS.curLocationlng;
+
+            GPS.curLocationlat = GPS_latitude;
+            GPS.curLocationlng = GPS_longitude;
+
             double distance = GPS.haversine(GPS.preLocationlat, GPS.preLocationlng, GPS.curLocationlat, GPS.curLocationlng);
-            if (distance > GPS.DISTANCE_THRESHOLD)
+            if (distance > GPS.DISTANCE_MIN_THRESHOLD && distance < GPS.DISTANCE_MAX_THRESHOLD)
             {
-              Serial.print("Distance (km): ");
-              Serial.println(distance, 3);
-              box.distanceCount = box.distanceCount + distance;
-              Serial.print("box.distanceCount (km): ");
-              Serial.println(box.distanceCount, 3);
+              // Serial.print("Distance (km): ");
+              // Serial.println(distance, 3);
+
+              // Serial.print("box.distanceCount (km): ");
+              // Serial.println(box.distanceCount, 3);
+
+              box.distanceCount += distance;
               box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS, box.distanceCount);
             }
             else
             {
-              Serial.println("Small movement detected. Ignoring.");
+              // Serial.println("Small movement detected. Ignoring.");
             }
           }
         }
@@ -280,36 +314,39 @@ void Sensors(void *pvParameters)
       lastGPSCounter = 0;
     }
     /////////////////////////////////////////////
-
-    if (wg.available())
+    //  RFID Sound
+    //    if (mqttClient.isAuthenSuccess)
+    //    {
+    //
+    //      if (digitalRead(BUZZER_PIN) == LOW)
+    //      {
+    //        digitalWrite(BUZZER_PIN, HIGH);
+    //        card_previousMillis = millis();
+    //      }
+    //      unsigned long card_currentMillis = millis();
+    //      if (card_currentMillis - card_previousMillis >= card_duration)
+    //      {
+    //        digitalWrite(BUZZER_PIN, LOW);
+    //        mqttClient.isAuthenSuccess = false;
+    //      }
+    //    }
+    if (wg.available() && LCD.page == 2)
     {
+      String gse = box.GSEID;
       box.rfid = String(wg.getCode(), HEX);
       box.rfid.toUpperCase();
+      String rfid = box.rfid;
       Serial.println(box.rfid);
-      if (LCD.page == 3)
-      {
-        LCD.popup_loading_on();
-        if (httpClient.postDriverAPI(box.rfid, LCD.GSEId))
-        {
-          LCD.Driver = httpClient.driverName;
-          LCD.driverLoginFailed = false;
-          LCD.isLogin = true;
-        }
-        else
-        {
-          LCD.driverLoginFailed = true;
-        }
-        LCD.popup_loading_off();
-      }
-
-      if (bt.page == 2)
-      {
-        SerialBT.println(bt.selectFlightWithRFID());
-        bt.isReadyToSend = false;
-      }
+      String payload = "{\"vehicle\":\"" + gse + "\",\"card_no\":\"" + rfid + "\"}";
+      int maxAttempts = 3;
+      int retryDelay = 100;
+      mqttClient.publishWithRetry("server/authentication/", payload.c_str(), maxAttempts, retryDelay);
     }
-    ///////////////////////////////////////
-    delay(10);
+    if (LCD.timeOutInProgress && millis() - LCD.timeOutStartTime >= LCD.timeOutDuration)
+    {
+      LCD.timeOutInProgress = false;
+      ESP.restart();
+    }
   }
 }
 
@@ -318,46 +355,123 @@ void loop()
 
   if (!mqttClient.isConnected())
   {
-    Serial.println("MQTT NOT CONNECTED!");
-    mqttClient.reconnect();
-    isSubscribeTopics = false;
+    //
+    ESP.restart();
+    //    mqttClient.begin();
+    //    Serial.println("MQTT NOT CONNECTED!");
+    //    mqttClient.reconnect();
+    //    isSubscribeTopics = false;
+  }
+  else if (!isSubscribeTopics)
+  {
+    subscribeTopics(box.GSEID);
   }
   else
   {
-
-    if (!httpClient.setTime)
+    // refresh flight
+    if (LCD.recheck_flight_list)
     {
-      httpClient.getTimeFromAPI();
-      if (httpClient.unixtime)
+      if (box.GSEID != "" && LCD.page == 3)
       {
-        rtc.setTime(httpClient.unixtime);
-        httpClient.setTime = true;
-      }
-    }
-    if (LCD.GSEId == "")
-    {
-      httpClient.getVehicleAPI(mqtt_id);
-      if (httpClient.vehicleID)
-      {
-        LCD.GSEId = httpClient.vehicleID;
-        subscribeTopics(LCD.GSEId);
-        String topic = "server/request/flight/short/" + LCD.GSEId;
+        String topic = "server/request/tasklist/" + box.GSEID;
         mqttClient.publish(topic.c_str(), "");
-        SerialBT.end();
-        SerialBT.begin(LCD.GSEId);
+        LCD.recheck_flight_list = false;
+        // Start Time Out
+        LCD.timeOutStartTime = millis();
+        LCD.timeOutInProgress = true;
+      }
+      else
+      {
+        Serial.println("refresh flight");
+        LCD.recheck_flight_list = false;
       }
     }
-    if (!isSubscribeTopics && LCD.GSEId != "")
+
+    // select flight
+    if (LCD.isSelectFlight)
     {
-      subscribeTopics(LCD.GSEId);
-    }
-    if (LCD.recheck_flight_list && LCD.GSEId != "" && LCD.page == 2)
-    {
-      String topic = "server/request/flight/short/" + LCD.GSEId;
-      mqttClient.publish(topic.c_str(), "");
-      LCD.recheck_flight_list = false;
+      if (LCD.page == 4 && LCD.taskId != "" && LCD.employeeId != "" && LCD.GSEId != "")
+      {
+        String taskId = String(LCD.taskId);
+        String gse = String(LCD.GSEId);
+        String employeeId = String(LCD.employeeId);
+        String topic = "server/request/create_task_assignment/";
+        String payload = "{\"task_id\":\"" + taskId + "\",\"vehicle\":\"" + gse + "\",\"employee_id\":\"" + employeeId + "\"}";
+        Serial.println(payload);
+        mqttClient.publish(topic.c_str(), payload.c_str());
+        LCD.isSelectFlight = false;
+        // Start Time Out
+        LCD.timeOutStartTime = millis();
+        LCD.timeOutInProgress = true;
+      }
+      else
+      {
+        Serial.println("select flight failed");
+        String taskId = String(LCD.taskId);
+        String gse = String(LCD.GSEId);
+        String employeeId = String(LCD.employeeId);
+        String topic = "server/request/create_task_assignment/";
+        String payload = "{\"task_id\":\"" + taskId + "\",\"vehicle\":\"" + gse + "\",\"employee_id\":\"" + employeeId + "\"}";
+        Serial.println(payload);
+        LCD.isSelectFlight = false;
+      }
     }
 
+    // select action
+    if (LCD.isStepAction)
+    {
+      if (LCD.page == 5 && LCD.unitName != "" && LCD.taskId != "")
+      {
+        String unitName = String(LCD.unitName);
+        String taskId = String(LCD.taskId);
+        String step = String(LCD.step);
+        String topic = "server/request/create_task_action/";
+        String payload = "{\"unit\":\"" + unitName + "\",\"task_assignment_id\":\"" + taskId + "\",\"step\":\"" + step + "\"}";
+        Serial.println(payload);
+        mqttClient.publish(topic.c_str(), payload.c_str());
+        LCD.isStepAction = false;
+        // Start Time Out
+        LCD.timeOutStartTime = millis();
+        LCD.timeOutInProgress = true;
+      }
+      else
+      {
+        Serial.println("select action failed");
+        String unitName = String(LCD.unitName);
+        String taskId = String(LCD.taskId);
+        String step = String(LCD.step);
+        String topic = "server/request/create_task_action/";
+        String payload = "{\"unit\":\"" + unitName + "\",\"task_assignment_id\":\"" + taskId + "\",\"step\":\"" + step + "\"}";
+        Serial.println(payload);
+        LCD.isStepAction = false;
+      }
+    }
+
+    // cancel_task_assignment
+    if (LCD.isCancelTask)
+    {
+      if (LCD.page == 5 && LCD.taskId != "")
+      {
+        String taskId = String(LCD.taskId);
+        String topic = "server/request/cancel_task_assignment/";
+        String payload = "{\"task_assignment_id\":\"" + taskId + "\"}";
+        Serial.println(payload);
+        mqttClient.publish(topic.c_str(), payload.c_str());
+        LCD.isCancelTask = false;
+        // Start Time Out
+        LCD.timeOutStartTime = millis();
+        LCD.timeOutInProgress = true;
+      }
+      else
+      {
+        Serial.println("select action failed");
+        String taskId = String(LCD.taskId);
+        String topic = "server/request/cancel_task_assignment/";
+        String payload = "{\"task_assignment_id\":\"" + taskId + "\"}";
+        Serial.println(payload);
+        LCD.isCancelTask = false;
+      }
+    }
     long now = millis();
     if (box.engineStateADC == "FF")
     {
@@ -379,11 +493,11 @@ void loop()
       }
     }
 
-    if (now - lastMqttCounter > MQTT_interval || lastMqttCounter == 0)
+    if ((now - lastMqttCounter > MQTT_interval || lastMqttCounter == 0))
     {
-
       lastMqttCounter = now;
 
+      mqttClient.loop();
       if (GPS.available())
       {
         box.latitude = String(GPS.latitude(), 6);
@@ -402,7 +516,6 @@ void loop()
       box.signalStrength = Network.getSignalStrength();
       box.engineTemperatureADC = SHT40.readTemperature();
       box.engineMinutes = String(box.engineMinCount);
-      Serial.println(box.distanceCount, 3);
       box.distance = String(int(box.distanceCount));
       if (acc.isAccReady())
       {
@@ -410,11 +523,10 @@ void loop()
         box.acceleration = String(gySum);
       }
       String mqttPayload = box.getMqttPayload();
-      mqttClient.publish("updatestatus", mqttPayload.c_str());
+      mqttClient.publish(box.MQTT_SERVER_MAIN_TOPIC, mqttPayload.c_str());
       Serial.println(mqttPayload);
-      // client.publish("updatebox", "Hello world");
-      delay(100);
     }
   }
   mqttClient.loop();
+  delay(10);
 }

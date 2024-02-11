@@ -18,6 +18,7 @@ public:
     void printLocalTime();
     String vehicleID = "";
     String driverName = "";
+    String unitName = "";
     long unixtime = 0;
     bool setTime = false;
 

@@ -38,11 +38,15 @@ public:
   void page3();
   void page4();
   void page5();
-  void popup_loading_on();
-  void popup_loading_off();
+
   void refreshData();
+
+  void popup_reconnecting_on();
+  void popup_reconnecting_off();
+
   uint8_t page = 0;
   uint8_t job_step = 0;
+  uint8_t step = 0;
 
   bool is4G;
   bool isSensor;
@@ -54,15 +58,29 @@ public:
   bool isLogin = false;
   bool driverLoginFailed = false;
 
+  bool isSelectFlight = false;
+  bool isSelectFlight_Ok = false;
+
+  bool isStepAction = false;
+  bool isStepAction_Ok = false;
+
+  bool isCancelTask = false;
+  bool isCancelTask_Ok = false;
+
+  bool isInitalTaskReady = false;
+
   String Datetime;
   String GSEId;
-  String Username;
   String Flight;
   String STD;
   String Bay;
   String ETD;
   String Gate;
   String Driver;
+  String employeeId;
+  String taskId;
+  String unitName;
+  String currentFlight;
   // Preview FIGHTLIST
 
   String flight_list = "";
@@ -70,6 +88,10 @@ public:
   String selected_flight = "";
   bool recheck_flight_list = false;
   char timer_flag = 0;
+
+  unsigned long timeOutStartTime = 0;
+  bool timeOutInProgress = false;
+  unsigned long timeOutDuration = 3000;
 };
 
 #endif

@@ -74,8 +74,9 @@ bool Ab_MQTTClient::subscribeWithRetry(const char *topic, int maxAttempts, int r
 
 void Ab_MQTTClient::reconnect()
 {
+
     // Loop until reconnected
-    while (!mqttClient.connected())
+    do
     {
         Serial.print("Attempting MQTT connection...");
         if (mqttClient.connect(id.c_str(), username, password))
@@ -103,11 +104,12 @@ void Ab_MQTTClient::reconnect()
             Serial.println("restarting ESP32...");
             ESP.restart();
         }
-    }
+    } while (!mqttClient.connected());
 }
 
 void Ab_MQTTClient::handleFlightListTopic(char *topic, byte *payload, unsigned int length)
 {
+
     DynamicJsonDocument jsonDataFromServer(ESP.getMaxAllocHeap() - 1024);
     DeserializationError error = deserializeJson(jsonDataFromServer, payload, length);
     jsonDataFromServer.shrinkToFit();
@@ -122,8 +124,9 @@ void Ab_MQTTClient::handleFlightListTopic(char *topic, byte *payload, unsigned i
     JsonArray flight_list = flight_list_doc.to<JsonArray>();
     LCD.flight_list = "";
 
-    if (jsonDataFromServer["type"] == "Flight")
+    if (jsonDataFromServer["source"] == "Task observer")
     {
+
         JsonArray results = jsonDataFromServer["results"];
 
         // Create a vector of JsonObjects for sorting
@@ -144,14 +147,15 @@ void Ab_MQTTClient::handleFlightListTopic(char *topic, byte *payload, unsigned i
 
         // Sort the flight list based on schedule_flight_time
         std::sort(sortedFlights.begin(), sortedFlights.end(), compareScheduleTime);
-
         for (JsonObject obj : sortedFlights)
         {
             JsonObject flight = flight_list.createNestedObject();
+
             const char *scheduleFlightTime = obj["schedule_flight_time"];
             String std = String(scheduleFlightTime).substring(16, 11);
             const char *estimateFlightTime = obj["estimate_flight_time"];
             String etd = String(estimateFlightTime).substring(16, 11);
+            flight["id"] = obj["id"];
             flight["flight"] = obj["flight_number"];
             flight["std"] = std;
             if (!etd.isEmpty())
@@ -175,9 +179,8 @@ void Ab_MQTTClient::handleFlightListTopic(char *topic, byte *payload, unsigned i
 
         LCD.flight_list_size = flight_list.size();
         serializeJson(flight_list, LCD.flight_list);
-        Serial.println(LCD.flight_list);
-        jsonDataFromServer.clear();
-        flight_list_doc.clear();
+        // LCD.flight_list = "[{\"flight\":\"WE 040\",\"std\":\"06:50\",\"etd\":\"06:50\",\"bay\":\"A1\",\"gate\":\"A1\"},{\"flight\":\"TG 002\",\"std\":\"06:55\",\"etd\":\"--:--\",\"bay\":\"B6\",\"gate\":\"B6\"},{\"flight\":\"WE 020\",\"std\":\"07:00\",\"etd\":\"07:00\",\"bay\":\"A3\",\"gate\":\"A3\"},{\"flight\":\"TG 323\",\"std\":\"07:00\",\"etd\":\"--:--\",\"bay\":\"E6\",\"gate\":\"E6\"},{\"flight\":\"WE 259\",\"std\":\"07:10\",\"etd\":\"10:05\",\"bay\":\"A1\",\"gate\":\"B7\"},{\"flight\":\"NH 806\",\"std\":\"07:10\",\"etd\":\"07:10\",\"bay\":\"E4\",\"gate\":\"E4\"},{\"flight\":\"TG 102\",\"std\":\"07:25\",\"etd\":\"--:--\",\"bay\":\"B3\",\"gate\":\"B3\"},{\"flight\":\"TG 586\",\"std\":\"07:30\",\"etd\":\"--:--\",\"bay\":\"D8\",\"gate\":\"D8\"},{\"flight\":\"WE 241\",\"std\":\"07:35\",\"etd\":\"07:35\",\"bay\":\"A4\",\"gate\":\"A4\"},{\"flight\":\"TG 289\",\"std\":\"07:40\",\"etd\":\"--:--\",\"bay\":\"F1\",\"gate\":\"B2B\"},{\"flight\":\"TG 560\",\"std\":\"07:45\",\"etd\":\"--:--\",\"bay\":\"G1\",\"gate\":\"G1\"},{\"flight\":\"TG 620\",\"std\":\"07:45\",\"etd\":\"--:--\",\"bay\":\"C9\",\"gate\":\"S111A\"},{\"flight\":\"TG 588\",\"std\":\"07:45\",\"etd\":\"--:--\",\"bay\":\"E1\",\"gate\":\"E1\"},{\"flight\":\"TG 550\",\"std\":\"07:45\",\"etd\":\"--:--\",\"bay\":\"E2\",\"gate\":\"E2\"},{\"flight\":\"MU 9622\",\"std\":\"07:50\",\"etd\":\"07:50\",\"bay\":\"509L\",\"gate\":\"E2A\"},{\"flight\":\"MS 511\",\"std\":\"07:55\",\"etd\":\"08:00\",\"bay\":\"516\",\"gate\":\"-\"},{\"flight\":\"TG 201\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"B5\",\"gate\":\"B5\"},{\"flight\":\"TG 403\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"G5\",\"gate\":\"G5\"},{\"flight\":\"TG 652\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"C9\",\"gate\":\"C9\"},{\"flight\":\"TG 676\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"D6\",\"gate\":\"D6\"},{\"flight\":\"TG 600\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"E3\",\"gate\":\"E3\"},{\"flight\":\"JL 708\",\"std\":\"08:05\",\"etd\":\"08:05\",\"bay\":\"G3\",\"gate\":\"G3\"}]";
+        // LCD.flight_list_size = 22;
         LCD.refreshData();
     }
 }
@@ -303,6 +306,7 @@ void Ab_MQTTClient::handleFlightCheck(char *topic, byte *payload, unsigned int l
 {
     LCD.recheck_flight_list = true;
 }
+
 void Ab_MQTTClient::handleAuthentication(char *topic, byte *payload, unsigned int length)
 {
     StaticJsonDocument<256> jsonDataFromServer;
@@ -312,6 +316,7 @@ void Ab_MQTTClient::handleAuthentication(char *topic, byte *payload, unsigned in
     {
         Serial.print(F("deserializeJson() failed: "));
         Serial.println(error.f_str());
+        LCD.driverLoginFailed = true;
         return;
     }
 
@@ -321,6 +326,7 @@ void Ab_MQTTClient::handleAuthentication(char *topic, byte *payload, unsigned in
     {
 
         Serial.println("Error");
+        LCD.driverLoginFailed = true;
         return;
     }
 
@@ -328,9 +334,106 @@ void Ab_MQTTClient::handleAuthentication(char *topic, byte *payload, unsigned in
     String lastName = jsonDataFromServer["last_name"];
     String vehicle = jsonDataFromServer["vehicle"];
     String empID = jsonDataFromServer["employee_id"];
-    Serial.println("level " + level);
+    String driverName = firstName + " " + lastName;
+    Serial.println("driverName " + driverName + empID);
 
     isAuthenSuccess = true;
+
+    LCD.Driver = driverName;
+    LCD.employeeId = empID;
+    LCD.driverLoginFailed = false;
+    LCD.isLogin = true;
+}
+void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int length)
+{
+    StaticJsonDocument<200> filter;
+    filter["event"] = true;
+    filter["id"] = true;
+    filter["flight"]["flight_number"] = true;
+    filter["last_action"] = true;
+
+    StaticJsonDocument<256> jsonDataFromServer;
+    // DeserializationError error = deserializeJson(jsonDataFromServer, payload, length);
+    DeserializationError error = deserializeJson(jsonDataFromServer, payload, DeserializationOption::Filter(filter));
+    if (error)
+    {
+        Serial.print(F("deserializeJson() failed: "));
+        Serial.println(error.f_str());
+        LCD.driverLoginFailed = true;
+        return;
+    }
+    String event = jsonDataFromServer["event"];
+    if (event == "get" || event == "create")
+    {
+        if (!LCD.isInitalTaskReady)
+        {
+            LCD.isInitalTaskReady = true;
+        }
+
+        String id = jsonDataFromServer["id"];
+        String currentFlight = jsonDataFromServer["flight"]["flight_number"];
+        LCD.currentFlight = currentFlight;
+
+        if (id != "null")
+        {
+            LCD.isSelectFlight_Ok = true;
+            LCD.taskId = id;
+            // String flight = jsonDataFromServer["flight"];
+            // LCD.currentFlight = flight;
+            // เด่ววววว
+            Serial.println(event);
+            Serial.println("task ID " + LCD.taskId);
+            Serial.println(LCD.currentFlight);
+            uint8_t step = jsonDataFromServer["last_action"]["step"];
+            Serial.print("last step ");
+            Serial.println(step);
+            // Set recconect Step and Job Step
+            if (step < 7)
+            {
+                if (step == 0)
+                {
+                    LCD.job_step = 0;
+                }
+                else if (step % 2 == 1) // 1,3,5
+                {
+                    LCD.job_step = 1;
+                }
+                else if (step == 6) // 6
+                {
+                    LCD.job_step = 2;
+                }
+                else // 2,4
+                {
+                    LCD.job_step = 2;
+                    set_text("button", "button_dropoff_pickup", "Next Round"); // re-setup
+                }
+
+                LCD.step = step + 1;
+            }
+            Serial.print("job_step ");
+            Serial.println(LCD.job_step);
+        }
+        else
+        {
+            Serial.println("No task_assignment_id");
+        }
+    }
+    else if (event == "update")
+    {
+        uint8_t step = jsonDataFromServer["last_action"]["step"];
+        Serial.println(event);
+        Serial.print("last step ");
+        Serial.println(step);
+        LCD.isStepAction_Ok = true;
+        String currentFlight = jsonDataFromServer["flight"]["flight_number"];
+        LCD.currentFlight = currentFlight;
+    }
+    else if (event == "cancel")
+    {
+        Serial.println("cancel");
+        LCD.isCancelTask_Ok = true;
+        LCD.currentFlight = "";
+    }
 }
 
 void Ab_MQTTClient::callback(char *topic, byte *payload, unsigned int length)
@@ -338,8 +441,12 @@ void Ab_MQTTClient::callback(char *topic, byte *payload, unsigned int length)
     Serial.print("Message arrived [");
     Serial.print(topic);
     Serial.print("] ");
-
+    LCD.timeOutInProgress = false;
     if (strncmp(topic, "client/response/flight/short/", strlen("client/response/flight/short/")) == 0)
+    {
+        handleFlightListTopic(topic, payload, length);
+    }
+    else if (strncmp(topic, "client/tasklist/", strlen("client/tasklist/")) == 0)
     {
         handleFlightListTopic(topic, payload, length);
     }
@@ -354,6 +461,10 @@ void Ab_MQTTClient::callback(char *topic, byte *payload, unsigned int length)
     else if (strncmp(topic, "client/authentication/", strlen("client/authentication/")) == 0)
     {
         handleAuthentication(topic, payload, length);
+    }
+    else if (strncmp(topic, "client/myassignment/", strlen("client/myassignment/")) == 0)
+    {
+        handleMyassignment(topic, payload, length);
     }
     else if (strcmp(topic, "client/flight/check/") == 0)
     {

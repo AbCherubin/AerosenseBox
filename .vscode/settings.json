@@ -13,6 +13,13 @@
     "type_traits": "cpp",
     "utility": "cpp",
     "xmemory0": "cpp",
-    "xtr1common": "cpp"
+    "xtr1common": "cpp",
+    "ios": "cpp",
+    "list": "cpp",
+    "system_error": "cpp",
+    "vector": "cpp",
+    "xhash": "cpp",
+    "xiosbase": "cpp",
+    "initializer_list": "cpp"
   }
 }

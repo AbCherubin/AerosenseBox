@@ -219,7 +219,7 @@ boolean PubSubClient::connect(const char *id, const char *user, const char *pass
             }
         }
 
-        if (result > 0)
+        if (result == 1)
         {
             nextMsgId = 1;
             // Leave room in the buffer for header and variable length field
@@ -290,7 +290,7 @@ boolean PubSubClient::connect(const char *id, const char *user, const char *pass
             write(MQTTCONNECT, this->buffer, length - MQTT_MAX_HEADER_SIZE);
 
             lastInActivity = lastOutActivity = millis();
-            pingOutstanding = false;
+
             while (!_client->available())
             {
                 unsigned long t = millis();
@@ -300,7 +300,6 @@ boolean PubSubClient::connect(const char *id, const char *user, const char *pass
                     _client->stop();
                     return false;
                 }
-                delay(1);
             }
             uint8_t llen;
             uint32_t len = readPacket(&llen);
@@ -456,7 +455,7 @@ boolean PubSubClient::loop()
                 pingOutstanding = true;
             }
         }
-        while (_client->available())
+        if (_client->available())
         {
             uint8_t llen;
             uint16_t len = readPacket(&llen);
@@ -715,7 +714,6 @@ boolean PubSubClient::write(uint8_t header, uint8_t *buf, uint16_t length)
 
 boolean PubSubClient::subscribe(const char *topic)
 {
-    loop();
     return subscribe(topic, 0);
 }
 
@@ -735,7 +733,6 @@ boolean PubSubClient::subscribe(const char *topic, uint8_t qos)
         // Too long
         return false;
     }
-
     if (connected())
     {
         // Leave room in the buffer for header and variable length field

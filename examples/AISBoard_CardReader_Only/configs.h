@@ -14,7 +14,7 @@
 
 // DEV //
 
-#define MQTT_GATEWAY "110.77.148.104"
+#define MQTT_GATEWAY "itafm.aerothai.biz"
 #define MQTT_HOST_PORT 14883
 int itafmServerPort = 14111;
 #define _SERVER_TOKEN "6qLpIYnEMk71czcVbSeDuLrTFf9uGQ"
@@ -27,7 +27,7 @@ int itafmServerPort = 14111;
 #define BOX_ID "\"id\":" + String(MQTT_CLIENT_ID)
 
 // HTTP Config
-char *itafmServerAddress = "110.77.148.104";
+char *itafmServerAddress = "itafm.aerothai.biz";
 
 //------------------------------------------------------------------------------------//
 //-------------------------Input/output parameter-------------------------------------//
