@@ -408,6 +408,19 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
                     set_text("button", "button_dropoff_pickup", "Next Round"); // re-setup
                 }
 
+                if (step >= 0 && step < 3)
+                {
+                    LCD.currentRound = 1;
+                }
+                else if (step >= 3 && step < 5)
+                {
+                    LCD.currentRound = 2;
+                }
+                else
+                {
+                    LCD.currentRound = 3;
+                }
+
                 LCD.step = step + 1;
             }
             Serial.print("job_step ");

@@ -461,6 +461,7 @@ void SerialLCD::page4()
         }
 
         job_step = 0;
+        currentRound = 1;
 
         open_win("blank");
         set_visible("blank", "true");
@@ -574,13 +575,14 @@ void SerialLCD::page4()
 void SerialLCD::page5()
 {
 
+    open_win("round_overlay");
     if (isCancelTask_Ok)
     {
         page = 3;
         char localPageStr[3];
         snprintf(localPageStr, sizeof(localPageStr), "%d", page);
         set_text("label", "local_page", localPageStr);
-
+        close_win("round_overlay");
         set_visible("top_overlay_status", "false");
         set_visible("bottom_overlay", "false");
         set_visible("center_overlay_confirm", "false");
@@ -673,6 +675,8 @@ void SerialLCD::page5()
             set_text("label", "local_page", localPageStr);
 
             set_text("label", "label_gohome_data", "0");
+            close_win("round_overlay");
+
             set_visible("label_gohome", "false");
             set_visible("label_gohome_data", "false");
 
@@ -701,37 +705,11 @@ void SerialLCD::page5()
         if (STONER.widget != NULL && (strcmp(STONER.widget, "button_exit_overlay") == 0))
         {
             open_win("cancel_flight");
-
-            // set_visible("cancel_flight", "false");
-
-            // StaticJsonDocument<256> _selected_flight;
-            // DeserializationError error = deserializeJson(_selected_flight, selected_flight);
-            // if (error)
-            // {
-            //     Serial.print(F("deserializeJson() failed: "));
-            //     Serial.println(error.f_str());
-            //     return;
-            // }
-            // job_step = 0;
-
             char flightNumber[20];
             snprintf(flightNumber, sizeof(flightNumber), "%s", currentFlight.c_str());
             set_text("label", "label_cancel_flight_data", flightNumber);
-
-            // const char *bay = _selected_flight["bay"];
-            // set_text("label", "label_cancel_flight_bay_data", const_cast<char *>(bay));
-
-            // const char *std = _selected_flight["std"];
-            // set_text("label", "label_cancel_flight_std_data", const_cast<char *>(std));
-
-            // const char *etd = _selected_flight["etd"];
-            // set_text("label", "label_cancel_flight_etd_data", const_cast<char *>(etd));
-
-            // const char *gate = _selected_flight["gate"];
-            // set_text("label", "label_cancel_flight_gate_data", const_cast<char *>(gate));
-
+            set_visible("round_overlay", "false");
             set_visible("cancel_flight", "true");
-            // _selected_flight.clear();
         }
         else if (STONER.widget != NULL && (strcmp(STONER.widget, "button_cancel_yes") == 0))
         {
@@ -740,16 +718,22 @@ void SerialLCD::page5()
         else if (STONER.widget != NULL && (strcmp(STONER.widget, "button_cancel_no") == 0))
         {
             set_visible("cancel_flight", "false");
+            set_visible("round_overlay", "true");
         }
         else if (STONER.widget != NULL && (strcmp(STONER.widget, "button_dropoff_pickup") == 0))
         {
             if (job_step == 2) // Next Round
             {
+                currentRound++;
                 set_visible("center_overlay_pickup", "false");
                 set_visible("center_overlay_dropoff", "false");
 
                 set_text("button", "button_dropoff_pickup", "Pick Up");
                 job_step = 0;
+                // close_win("round_overlay");
+                char currentRoundStr[15];
+                snprintf(currentRoundStr, sizeof(currentRoundStr), "Round: %d", currentRound);
+                set_text("label", "round_label", currentRoundStr);
             }
             else
             {

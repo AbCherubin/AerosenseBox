@@ -19,6 +19,7 @@ private:
   uint8_t currentJobPage = 0;
   uint8_t buttonsPerPage = 0;
   uint8_t numPages = 0;
+
   unsigned long startTime = 0;
   unsigned long countdownDuration = 5000;
   uint8_t _prevPages = 0;
@@ -47,6 +48,7 @@ public:
   uint8_t page = 0;
   uint8_t job_step = 0;
   uint8_t step = 0;
+  uint8_t currentRound = 0;
 
   bool is4G;
   bool isSensor;

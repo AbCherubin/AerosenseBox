@@ -108,8 +108,6 @@ void IRAM_ATTR onTimer()
   //  {
   //    LCD.job_step = 0;
   //  }
-  //    Serial.print(F("Free heap: "));
-  //    Serial.println(ESP.getFreeHeap());
 }
 
 void setup()
@@ -177,6 +175,10 @@ void setup()
 
       httpClient.setTime = true;
     }
+    else
+    {
+      ESP.restart();
+    }
     delay(100);
   }
 
@@ -189,6 +191,10 @@ void setup()
       LCD.GSEId = httpClient.vehicleID;
       LCD.unitName = httpClient.unitName;
       subscribeTopics(box.GSEID);
+    }
+    else
+    {
+      ESP.restart();
     }
     delay(100);
   }
@@ -345,6 +351,15 @@ void Sensors(void *pvParameters)
     if (LCD.timeOutInProgress && millis() - LCD.timeOutStartTime >= LCD.timeOutDuration)
     {
       LCD.timeOutInProgress = false;
+      ESP.restart();
+    }
+    else
+    {
+      Serial.print(F("Free heap: "));
+      Serial.println(ESP.getFreeHeap());
+    }
+    if (ESP.getFreeHeap() <= 10000)
+    {
       ESP.restart();
     }
   }
