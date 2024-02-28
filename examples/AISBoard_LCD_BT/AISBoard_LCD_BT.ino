@@ -353,13 +353,10 @@ void Sensors(void *pvParameters)
       LCD.timeOutInProgress = false;
       ESP.restart();
     }
-    else
+    if (ESP.getFreeHeap() <= 10000)
     {
       Serial.print(F("Free heap: "));
       Serial.println(ESP.getFreeHeap());
-    }
-    if (ESP.getFreeHeap() <= 10000)
-    {
       ESP.restart();
     }
   }
