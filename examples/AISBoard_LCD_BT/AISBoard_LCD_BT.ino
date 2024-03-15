@@ -177,6 +177,7 @@ void setup()
     }
     else
     {
+      mqttClient.disconnect();
       ESP.restart();
     }
     delay(100);
@@ -194,6 +195,7 @@ void setup()
     }
     else
     {
+      mqttClient.disconnect();
       ESP.restart();
     }
     delay(100);
@@ -353,7 +355,8 @@ void Sensors(void *pvParameters)
       LCD.timeOutInProgress = false;
       ESP.restart();
     }
-    if (ESP.getFreeHeap() <= 10000)
+    int freeheap = ESP.getFreeHeap();
+    if (freeheap <= 100000)
     {
       Serial.print(F("Free heap: "));
       Serial.println(ESP.getFreeHeap());
@@ -456,6 +459,8 @@ void loop()
         String payload = "{\"unit\":\"" + unitName + "\",\"task_assignment_id\":\"" + taskId + "\",\"step\":\"" + step + "\"}";
         Serial.println(payload);
         LCD.isStepAction = false;
+        // back to flight page
+        LCD.isCancelTask_Ok = true;
       }
     }
 
@@ -482,6 +487,8 @@ void loop()
         String payload = "{\"task_assignment_id\":\"" + taskId + "\"}";
         Serial.println(payload);
         LCD.isCancelTask = false;
+        // back to flight page
+        LCD.isCancelTask_Ok = true;
       }
     }
     long now = millis();
@@ -537,6 +544,8 @@ void loop()
       String mqttPayload = box.getMqttPayload();
       mqttClient.publish(box.MQTT_SERVER_MAIN_TOPIC, mqttPayload.c_str());
       Serial.println(mqttPayload);
+      Serial.print(F("Free heap: "));
+      Serial.println(ESP.getFreeHeap());
     }
   }
   mqttClient.loop();

@@ -207,11 +207,11 @@ void SerialLCD::page0()
                 //     isSelectFlight_Ok = true;
                 // }
 
-                // if (page == 5 && taskId == "")
-                // {
+                if (page == 5 && taskId == "")
+                {
 
-                //     isCancelTask_Ok = true;
-                // }
+                    isCancelTask_Ok = true;
+                }
                 Serial.print("Task ID: ");
                 Serial.println(taskId);
                 Serial.print("Page: ");
@@ -689,7 +689,12 @@ void SerialLCD::page5()
             set_visible("center_overlay_finished", "false");
             set_visible("cancel_flight", "false");
             set_visible("blank", "false");
-            refreshData();
+            // refreshData();
+            recheck_flight_list = true;
+            set_visible("overlay_flight_page1", "false");
+            set_visible("popup_loading_1", "true");
+            loadingStartTime = millis();
+            loadingInProgress = true;
         }
         else
         {

@@ -117,6 +117,7 @@ void Ab_MQTTClient::handleFlightListTopic(char *topic, byte *payload, unsigned i
     {
         Serial.print(F("deserializeJson() failed: "));
         Serial.println(error.f_str());
+        ESP.restart();
         return;
     }
 
@@ -194,6 +195,7 @@ void Ab_MQTTClient::handleVehicleStatus(char *topic, byte *payload, unsigned int
     {
         Serial.print(F("deserializeJson() failed: "));
         Serial.println(error.f_str());
+        ESP.restart();
         return;
     }
 
@@ -351,7 +353,7 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
     filter["id"] = true;
     filter["flight"]["flight_number"] = true;
     filter["last_action"] = true;
-
+    LCD.currentFlight = "";
     StaticJsonDocument<256> jsonDataFromServer;
     // DeserializationError error = deserializeJson(jsonDataFromServer, payload, length);
     DeserializationError error = deserializeJson(jsonDataFromServer, payload, DeserializationOption::Filter(filter));
@@ -371,11 +373,12 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
         }
 
         String id = jsonDataFromServer["id"];
-        String currentFlight = jsonDataFromServer["flight"]["flight_number"];
-        LCD.currentFlight = currentFlight;
 
         if (id != "null")
         {
+            String currentFlight = jsonDataFromServer["flight"]["flight_number"];
+            LCD.currentFlight = currentFlight;
+
             LCD.isSelectFlight_Ok = true;
             LCD.taskId = id;
             // String flight = jsonDataFromServer["flight"];
@@ -445,7 +448,6 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
     {
         Serial.println("cancel");
         LCD.isCancelTask_Ok = true;
-        LCD.currentFlight = "";
     }
 }
 
