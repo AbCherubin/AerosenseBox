@@ -179,7 +179,12 @@ void Ab_MQTTClient::handleFlightListTopic(char *topic, byte *payload, unsigned i
         }
 
         LCD.flight_list_size = flight_list.size();
+        if (LCD.flight_list_size <= 0)
+        {
+            ESP.restart();
+        }
         serializeJson(flight_list, LCD.flight_list);
+
         // LCD.flight_list = "[{\"flight\":\"WE 040\",\"std\":\"06:50\",\"etd\":\"06:50\",\"bay\":\"A1\",\"gate\":\"A1\"},{\"flight\":\"TG 002\",\"std\":\"06:55\",\"etd\":\"--:--\",\"bay\":\"B6\",\"gate\":\"B6\"},{\"flight\":\"WE 020\",\"std\":\"07:00\",\"etd\":\"07:00\",\"bay\":\"A3\",\"gate\":\"A3\"},{\"flight\":\"TG 323\",\"std\":\"07:00\",\"etd\":\"--:--\",\"bay\":\"E6\",\"gate\":\"E6\"},{\"flight\":\"WE 259\",\"std\":\"07:10\",\"etd\":\"10:05\",\"bay\":\"A1\",\"gate\":\"B7\"},{\"flight\":\"NH 806\",\"std\":\"07:10\",\"etd\":\"07:10\",\"bay\":\"E4\",\"gate\":\"E4\"},{\"flight\":\"TG 102\",\"std\":\"07:25\",\"etd\":\"--:--\",\"bay\":\"B3\",\"gate\":\"B3\"},{\"flight\":\"TG 586\",\"std\":\"07:30\",\"etd\":\"--:--\",\"bay\":\"D8\",\"gate\":\"D8\"},{\"flight\":\"WE 241\",\"std\":\"07:35\",\"etd\":\"07:35\",\"bay\":\"A4\",\"gate\":\"A4\"},{\"flight\":\"TG 289\",\"std\":\"07:40\",\"etd\":\"--:--\",\"bay\":\"F1\",\"gate\":\"B2B\"},{\"flight\":\"TG 560\",\"std\":\"07:45\",\"etd\":\"--:--\",\"bay\":\"G1\",\"gate\":\"G1\"},{\"flight\":\"TG 620\",\"std\":\"07:45\",\"etd\":\"--:--\",\"bay\":\"C9\",\"gate\":\"S111A\"},{\"flight\":\"TG 588\",\"std\":\"07:45\",\"etd\":\"--:--\",\"bay\":\"E1\",\"gate\":\"E1\"},{\"flight\":\"TG 550\",\"std\":\"07:45\",\"etd\":\"--:--\",\"bay\":\"E2\",\"gate\":\"E2\"},{\"flight\":\"MU 9622\",\"std\":\"07:50\",\"etd\":\"07:50\",\"bay\":\"509L\",\"gate\":\"E2A\"},{\"flight\":\"MS 511\",\"std\":\"07:55\",\"etd\":\"08:00\",\"bay\":\"516\",\"gate\":\"-\"},{\"flight\":\"TG 201\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"B5\",\"gate\":\"B5\"},{\"flight\":\"TG 403\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"G5\",\"gate\":\"G5\"},{\"flight\":\"TG 652\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"C9\",\"gate\":\"C9\"},{\"flight\":\"TG 676\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"D6\",\"gate\":\"D6\"},{\"flight\":\"TG 600\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"E3\",\"gate\":\"E3\"},{\"flight\":\"JL 708\",\"std\":\"08:05\",\"etd\":\"08:05\",\"bay\":\"G3\",\"gate\":\"G3\"}]";
         // LCD.flight_list_size = 22;
         LCD.refreshData();
