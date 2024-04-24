@@ -15,6 +15,7 @@ class SerialLCD
 {
 private:
   void set_display_data(uint8_t page);
+  void Initial_setup();
   uint8_t maxJob = 0;
   uint8_t currentJobPage = 0;
   uint8_t buttonsPerPage = 0;
@@ -31,6 +32,8 @@ private:
   unsigned long loadingStartTime = 0;
   bool loadingInProgress = false;
   unsigned long loadingDuration = 3000;
+
+  String currentFlight;
 
 public:
   void page0();
@@ -74,9 +77,9 @@ public:
   String Datetime;
   String GSEId;
   String Flight;
-  String STD;
+  String ST;
   String Bay;
-  String ETD;
+  String ET;
   String Gate;
   String Driver;
   String employeeId;
@@ -86,6 +89,7 @@ public:
   // Preview FIGHTLIST
 
   String flight_list = "";
+  String flight_type = "";
   uint8_t flight_list_size = 0;
   String selected_flight = "";
   bool recheck_flight_list = false;
@@ -93,7 +97,7 @@ public:
 
   unsigned long timeOutStartTime = 0;
   bool timeOutInProgress = false;
-  unsigned long timeOutDuration = 3000;
+  unsigned long timeOutDuration = 4000;
 };
 
 #endif

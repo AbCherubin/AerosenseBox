@@ -109,6 +109,10 @@ void Ab_MQTTClient::reconnect()
 
 void Ab_MQTTClient::handleFlightListTopic(char *topic, byte *payload, unsigned int length)
 {
+    if (LCD.flight_type == "")
+    {
+        return;
+    }
 
     DynamicJsonDocument jsonDataFromServer(ESP.getMaxAllocHeap() - 1024);
     DeserializationError error = deserializeJson(jsonDataFromServer, payload, length);
@@ -124,7 +128,8 @@ void Ab_MQTTClient::handleFlightListTopic(char *topic, byte *payload, unsigned i
     DynamicJsonDocument flight_list_doc(6000);
     JsonArray flight_list = flight_list_doc.to<JsonArray>();
     LCD.flight_list = "";
-
+    const char *flight_type = LCD.flight_type.c_str();
+    Serial.println(flight_type);
     if (jsonDataFromServer["source"] == "Task observer")
     {
 
@@ -135,7 +140,18 @@ void Ab_MQTTClient::handleFlightListTopic(char *topic, byte *payload, unsigned i
 
         for (JsonObject obj : results)
         {
-            sortedFlights.push_back(obj);
+            const char *flightType = obj["type"];
+            if (strcmp(flightType, flight_type) == 0)
+            {
+                sortedFlights.push_back(obj);
+            }
+
+            // sortedFlights.push_back(obj);
+        }
+        if (sortedFlights.empty())
+        {
+            // If sortedFlights has no objects, return from the function
+            return;
         }
 
         // Create a custom comparison function to compare schedule_flight_time
@@ -153,19 +169,19 @@ void Ab_MQTTClient::handleFlightListTopic(char *topic, byte *payload, unsigned i
             JsonObject flight = flight_list.createNestedObject();
 
             const char *scheduleFlightTime = obj["schedule_flight_time"];
-            String std = String(scheduleFlightTime).substring(16, 11);
+            String ST = String(scheduleFlightTime).substring(16, 11);
             const char *estimateFlightTime = obj["estimate_flight_time"];
-            String etd = String(estimateFlightTime).substring(16, 11);
+            String ET = String(estimateFlightTime).substring(16, 11);
             flight["id"] = obj["id"];
             flight["flight"] = obj["flight_number"];
-            flight["std"] = std;
-            if (!etd.isEmpty())
+            flight["ST"] = ST;
+            if (!ET.isEmpty())
             {
-                flight["etd"] = etd;
+                flight["ET"] = ET;
             }
             else
             {
-                flight["etd"] = "--:--";
+                flight["ET"] = "--:--";
             }
             flight["bay"] = obj["bay"];
             if (obj["gate"] == "")
@@ -184,9 +200,6 @@ void Ab_MQTTClient::handleFlightListTopic(char *topic, byte *payload, unsigned i
             ESP.restart();
         }
         serializeJson(flight_list, LCD.flight_list);
-
-        // LCD.flight_list = "[{\"flight\":\"WE 040\",\"std\":\"06:50\",\"etd\":\"06:50\",\"bay\":\"A1\",\"gate\":\"A1\"},{\"flight\":\"TG 002\",\"std\":\"06:55\",\"etd\":\"--:--\",\"bay\":\"B6\",\"gate\":\"B6\"},{\"flight\":\"WE 020\",\"std\":\"07:00\",\"etd\":\"07:00\",\"bay\":\"A3\",\"gate\":\"A3\"},{\"flight\":\"TG 323\",\"std\":\"07:00\",\"etd\":\"--:--\",\"bay\":\"E6\",\"gate\":\"E6\"},{\"flight\":\"WE 259\",\"std\":\"07:10\",\"etd\":\"10:05\",\"bay\":\"A1\",\"gate\":\"B7\"},{\"flight\":\"NH 806\",\"std\":\"07:10\",\"etd\":\"07:10\",\"bay\":\"E4\",\"gate\":\"E4\"},{\"flight\":\"TG 102\",\"std\":\"07:25\",\"etd\":\"--:--\",\"bay\":\"B3\",\"gate\":\"B3\"},{\"flight\":\"TG 586\",\"std\":\"07:30\",\"etd\":\"--:--\",\"bay\":\"D8\",\"gate\":\"D8\"},{\"flight\":\"WE 241\",\"std\":\"07:35\",\"etd\":\"07:35\",\"bay\":\"A4\",\"gate\":\"A4\"},{\"flight\":\"TG 289\",\"std\":\"07:40\",\"etd\":\"--:--\",\"bay\":\"F1\",\"gate\":\"B2B\"},{\"flight\":\"TG 560\",\"std\":\"07:45\",\"etd\":\"--:--\",\"bay\":\"G1\",\"gate\":\"G1\"},{\"flight\":\"TG 620\",\"std\":\"07:45\",\"etd\":\"--:--\",\"bay\":\"C9\",\"gate\":\"S111A\"},{\"flight\":\"TG 588\",\"std\":\"07:45\",\"etd\":\"--:--\",\"bay\":\"E1\",\"gate\":\"E1\"},{\"flight\":\"TG 550\",\"std\":\"07:45\",\"etd\":\"--:--\",\"bay\":\"E2\",\"gate\":\"E2\"},{\"flight\":\"MU 9622\",\"std\":\"07:50\",\"etd\":\"07:50\",\"bay\":\"509L\",\"gate\":\"E2A\"},{\"flight\":\"MS 511\",\"std\":\"07:55\",\"etd\":\"08:00\",\"bay\":\"516\",\"gate\":\"-\"},{\"flight\":\"TG 201\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"B5\",\"gate\":\"B5\"},{\"flight\":\"TG 403\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"G5\",\"gate\":\"G5\"},{\"flight\":\"TG 652\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"C9\",\"gate\":\"C9\"},{\"flight\":\"TG 676\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"D6\",\"gate\":\"D6\"},{\"flight\":\"TG 600\",\"std\":\"08:00\",\"etd\":\"--:--\",\"bay\":\"E3\",\"gate\":\"E3\"},{\"flight\":\"JL 708\",\"std\":\"08:05\",\"etd\":\"08:05\",\"bay\":\"G3\",\"gate\":\"G3\"}]";
-        // LCD.flight_list_size = 22;
         LCD.refreshData();
     }
 }
@@ -227,18 +240,18 @@ void Ab_MQTTClient::handleVehicleStatus(char *topic, byte *payload, unsigned int
 
     String flight = taskObject["flight"];
     String bay = taskObject["bay"];
-    String STD = taskObject["STD"];
-    String ETD = taskObject["ETD"];
+    String ST = taskObject["ST"];
+    String ET = taskObject["ET"];
 
     // You can now work with these extracted fields
     Serial.print("Flight: ");
     Serial.println(flight);
     Serial.print("Bay: ");
     Serial.println(bay);
-    Serial.print("STD: ");
-    Serial.println(STD);
-    Serial.print("ETD: ");
-    Serial.println(ETD);
+    Serial.print("ST: ");
+    Serial.println(ST);
+    Serial.print("ET: ");
+    Serial.println(ET);
 }
 
 void Ab_MQTTClient::handleAerosensebox(char *topic, byte *payload, unsigned int length)

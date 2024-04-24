@@ -58,6 +58,10 @@ int engineSecondCount = 0;
 
 int engine_flag = 0;
 
+unsigned long sleepStartTime = 0;
+bool sleepInProgress = true;
+unsigned long sleepDuration = 5 * 60000;
+
 void subscribeTopics(String GSEID)
 {
   String boxTopic = "client/aerosensebox/" + GSEID;
@@ -211,6 +215,10 @@ void setup()
   mqttClient.publish(topic_get_task_assignment.c_str(), "");
   String topic_tasklist = "server/request/tasklist/" + box.GSEID;
   mqttClient.publish(topic_tasklist.c_str(), "");
+  //  Start Time Out
+  LCD.timeOutStartTime = millis();
+  LCD.timeOutInProgress = true;
+
   LCD.timer_flag = 1;
 }
 
@@ -220,6 +228,24 @@ void Sensors(void *pvParameters)
   for (;;)
   {
     serial_receive();
+    // Sleep Mode Trigger
+    //    if (receive_over_flage == 1)
+    //    {
+    //      sleepStartTime = millis();
+    //      if (sleepInProgress)
+    //      {
+    //        close_win("Sleep_page");
+    //        set_sleep("false");
+    //        sleepInProgress = false;
+    //      }
+    //    }
+    //    if (!sleepInProgress && millis() - sleepStartTime >= sleepDuration)
+    //    {
+    //      sleepInProgress = true;
+    //      set_sleep("true");
+    //      open_win("Sleep_page");
+    //      receive_over_flage = 0;
+    //    }
     switch (LCD.page)
     {
     case 0:
@@ -338,7 +364,7 @@ void Sensors(void *pvParameters)
     //        mqttClient.isAuthenSuccess = false;
     //      }
     //    }
-    if (wg.available() && LCD.page == 2)
+    if (wg.available() && LCD.page == 1)
     {
       String gse = box.GSEID;
       box.rfid = String(wg.getCode(), HEX);
