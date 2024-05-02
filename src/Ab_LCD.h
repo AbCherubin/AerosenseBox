@@ -31,9 +31,10 @@ private:
 
   unsigned long loadingStartTime = 0;
   bool loadingInProgress = false;
-  unsigned long loadingDuration = 3000;
+  unsigned long loadingDuration = 4000;
 
-  String currentFlight;
+  bool is_Setting_page_open = false;
+  String HMI_version = "";
 
 public:
   void page0();

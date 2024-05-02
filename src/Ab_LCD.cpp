@@ -56,6 +56,7 @@ void SerialLCD::refreshData()
     set_visible("Flight_list", "true");
     set_visible("Popup_loading", "false");
     set_visible("Overlay_flight", "true");
+    popup_reconnecting_off();
 }
 
 void SerialLCD::set_display_data(uint8_t page)
@@ -112,7 +113,7 @@ void SerialLCD::set_display_data(uint8_t page)
             snprintf(label_button_dropoff, sizeof(label_button_dropoff), "label_button%d_%d_dropoff", j, block);
             set_text("label", label_button_dropoff, const_cast<char *>(dropoff));
         }
-        else
+        else if (flight_type == "ARR")
         {
             const char *pickup = _flight_list[i]["bay"];
             char label_button_pickup[30];
@@ -168,7 +169,8 @@ void SerialLCD::Initial_setup()
     set_text("label", "label_gse", GSEIdStr);
 
     set_visible("label_gse", "true");
-    set_sys("sys_version");
+    Serial.println(STONER.data);
+    HMI_version = String(STONER.data);
     page = 1;
     char localPageStr[3];
     snprintf(localPageStr, sizeof(localPageStr), "%d", page);
@@ -180,10 +182,10 @@ void SerialLCD::page0()
     if (timer_flag == 1)
     {
         // set_sys("sys_hello");
+        set_sys("sys_version");
         timer_flag = 0;
         get_text("label", "local_rfid");
         // get_text("label", "local_page");
-        set_sys("sys_hello");
     }
 
     if (receive_over_flage == 1 && GSEId != "" && Datetime != "" && isInitalTaskReady)
@@ -261,7 +263,7 @@ void SerialLCD::page0()
             Serial.println(local_page_str);
             if (intValue > 1 && intValue <= 255)
             {
-                recheck_flight_list = true;
+
                 uint8_t uint8Value = static_cast<uint8_t>(intValue);
                 page = uint8Value;
                 // if the page is selecting flight(4) then back to flight list(3) page
@@ -285,17 +287,27 @@ void SerialLCD::page0()
 
                     isCancelTask_Ok = true;
                 }
+                if (page != 3)
+                {
+                    popup_reconnecting_off();
+                }
+                else
+                {
+                    recheck_flight_list = true;
+                }
                 Serial.print("Task ID: ");
                 Serial.println(taskId);
                 Serial.print("Page: ");
                 Serial.println(page);
                 set_sys("sys_version");
+                Serial.println(STONER.data);
+                HMI_version = String(STONER.data);
             }
             else
             {
                 Initial_setup();
+                popup_reconnecting_off();
             }
-            popup_reconnecting_off();
         }
         else
         {
@@ -370,13 +382,17 @@ void SerialLCD::page1()
 
         //     isLogin = false;
         // }
-        if (STONER.widget != NULL && strcmp(STONER.widget, "btn_setting_rfid") == 0)
+
+        if (STONER.widget != NULL && strcmp(STONER.widget, "btn_setting_rfid") == 0 && !is_Setting_page_open)
         {
             open_win("Setting_page");
             set_visible("Setting_page", "true");
 
-            String HMI_version = "HMI Device Version: " + String(STONER.data);
-            set_text("label", "label_HMI_ver", const_cast<char *>(HMI_version.c_str()));
+            String HMI = "HMI Device Version: " + HMI_version;
+            set_text("label", "label_HMI_ver", const_cast<char *>(HMI.c_str()));
+            set_visible("label_HMI_ver", "true");
+            // fix sleep mode bug.
+            is_Setting_page_open = true;
         }
         else if (STONER.widget != NULL && strcmp(STONER.widget, "radio_btn_80") == 0)
         {
@@ -389,6 +405,8 @@ void SerialLCD::page1()
         else if (STONER.widget != NULL && strcmp(STONER.widget, "btn_setting_exit") == 0)
         {
             set_visible("Setting_page", "false");
+            // fix sleep mode bug.
+            is_Setting_page_open = false;
         }
         receive_over_flage = 0;
     }
@@ -424,6 +442,7 @@ void SerialLCD::page2()
             set_visible("label_head_ET", "true");
             set_visible("label_head_pickup", "true");
             set_visible("label_head_dropoff", "true");
+            set_visible("label_head", "true");
 
             recheck_flight_list = true;
             set_visible("Overlay_flight", "false");
@@ -459,6 +478,7 @@ void SerialLCD::page2()
             set_visible("label_head_ET", "true");
             set_visible("label_head_pickup", "true");
             set_visible("label_head_dropoff", "true");
+            set_visible("label_head", "true");
 
             recheck_flight_list = true;
             set_visible("Overlay_flight", "false");
@@ -508,6 +528,7 @@ void SerialLCD::page3()
     {
         if (STONER.widget != NULL && strcmp(STONER.widget, "btn_arrow_right") == 0)
         {
+
             if (currentJobPage < numPages)
             {
                 currentJobPage++;
@@ -609,7 +630,7 @@ void SerialLCD::page3()
                 String bayString = "Drop Off: " + String(bay);
                 set_text("label", "label_accept_flight_dropoff_data", const_cast<char *>(bayString.c_str()));
             }
-            else
+            else if (flight_type == "ARR")
             {
                 const char *flightNumber = _selected_flight["flight"];
                 String flightNumberString = "Accept Flight: " + String(flightNumber);
@@ -714,7 +735,7 @@ void SerialLCD::page4()
             String bayString = String(bay);
             set_text("label", "label_dropoff", const_cast<char *>(bayString.c_str()));
         }
-        else
+        else if (flight_type == "ARR")
         {
             const char *flightNumber = _selected_flight["flight"];
             String flightNumberString = "Flight: " + String(flightNumber);
@@ -979,6 +1000,7 @@ void SerialLCD::page5()
             char flightNumber[20];
             snprintf(flightNumber, sizeof(flightNumber), "%s", currentFlight.c_str());
             set_text("label", "label_cancel_flight_data", flightNumber);
+            set_visible("label_cancel_flight_data", "true");
             set_visible("Round_overlay", "false");
             set_visible("Cancel_flight", "true");
         }

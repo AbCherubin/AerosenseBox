@@ -214,8 +214,8 @@ void setup()
   String topic_get_task_assignment = "server/request/get_task_assignment/" + box.GSEID;
   mqttClient.publish(topic_get_task_assignment.c_str(), "");
   String topic_tasklist = "server/request/tasklist/" + box.GSEID;
-  mqttClient.publish(topic_tasklist.c_str(), "");
-  //  Start Time Out
+  // mqttClient.publish(topic_tasklist.c_str(), "");
+  //   Start Time Out
   LCD.timeOutStartTime = millis();
   LCD.timeOutInProgress = true;
 
@@ -420,10 +420,10 @@ void loop()
         // Start Time Out
         LCD.timeOutStartTime = millis();
         LCD.timeOutInProgress = true;
+        Serial.println("request/tasklist/");
       }
       else
       {
-        Serial.println("refresh flight");
         LCD.recheck_flight_list = false;
       }
     }
