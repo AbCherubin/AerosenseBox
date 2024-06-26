@@ -20,6 +20,9 @@ private:
   uint8_t currentJobPage = 0;
   uint8_t buttonsPerPage = 0;
   uint8_t numPages = 0;
+  uint8_t roundTask = 4;
+
+  bool radioButtonChecker = false;
 
   unsigned long startTime = 0;
   unsigned long countdownDuration = 5000;
@@ -33,7 +36,6 @@ private:
   bool loadingInProgress = false;
   unsigned long loadingDuration = 4000;
 
-  bool is_Setting_page_open = false;
   String HMI_version = "";
 
 public:
@@ -43,6 +45,7 @@ public:
   void page3();
   void page4();
   void page5();
+  void page9();
 
   void refreshData();
 
@@ -53,6 +56,7 @@ public:
   uint8_t job_step = 0;
   uint8_t step = 0;
   uint8_t currentRound = 0;
+  uint8_t maxStep = (roundTask * 2) + 1;
 
   bool is4G;
   bool isSensor;
@@ -70,11 +74,15 @@ public:
   bool isStepAction = false;
   bool isStepAction_Ok = false;
 
+  bool isUndoAction = false;
+  bool isUndoAction_Ok = false;
+
   bool isCancelTask = false;
   bool isCancelTask_Ok = false;
 
   bool isInitalTaskReady = false;
 
+  bool sleepInProgress = true;
   String Datetime;
   String GSEId;
   String Flight;

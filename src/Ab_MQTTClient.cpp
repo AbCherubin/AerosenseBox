@@ -346,7 +346,13 @@ void Ab_MQTTClient::handleAuthentication(char *topic, byte *payload, unsigned in
     {
 
         Serial.println("Error");
-        LCD.driverLoginFailed = true;
+        // LCD.driverLoginFailed = true;
+        isAuthenSuccess = true;
+
+        LCD.Driver = "Empty";
+        LCD.employeeId = "";
+        LCD.driverLoginFailed = false;
+        LCD.isLogin = true;
         return;
     }
 
@@ -374,6 +380,7 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
     LCD.currentFlight = "";
     StaticJsonDocument<256> jsonDataFromServer;
     // DeserializationError error = deserializeJson(jsonDataFromServer, payload, length);
+    serializeJsonPretty(jsonDataFromServer, Serial);
     DeserializationError error = deserializeJson(jsonDataFromServer, payload, DeserializationOption::Filter(filter));
     if (error)
     {
@@ -409,7 +416,7 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
             Serial.print("last step ");
             Serial.println(step);
             // Set recconect Step and Job Step
-            if (step < 7)
+            if (step < LCD.maxStep)
             {
                 if (step == 0)
                 {
@@ -419,7 +426,7 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
                 {
                     LCD.job_step = 1;
                 }
-                else if (step == 6) // 6
+                else if (step == (LCD.maxStep - 1))
                 {
                     LCD.job_step = 2;
                 }
@@ -429,20 +436,10 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
                     set_text("button", "button_dropoff_pickup", "Next Round"); // re-setup
                 }
 
-                if (step >= 0 && step < 3)
-                {
-                    LCD.currentRound = 1;
-                }
-                else if (step >= 3 && step < 5)
-                {
-                    LCD.currentRound = 2;
-                }
-                else
-                {
-                    LCD.currentRound = 3;
-                }
-
+                LCD.currentRound = (step + 1) / 2;
                 LCD.step = step + 1;
+                Serial.print("currentRound ");
+                Serial.println(LCD.currentRound);
             }
             Serial.print("job_step ");
             Serial.println(LCD.job_step);
@@ -467,6 +464,14 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
         Serial.println("cancel");
         LCD.isCancelTask_Ok = true;
     }
+    else if (event == "undo")
+    {
+        Serial.print("undo");
+    }
+    else if (event == "err")
+    {
+        Serial.print("err");
+    }
 }
 
 void Ab_MQTTClient::callback(char *topic, byte *payload, unsigned int length)
@@ -474,6 +479,7 @@ void Ab_MQTTClient::callback(char *topic, byte *payload, unsigned int length)
     Serial.print("Message arrived [");
     Serial.print(topic);
     Serial.print("] ");
+
     LCD.timeOutInProgress = false;
     if (strncmp(topic, "client/response/flight/short/", strlen("client/response/flight/short/")) == 0)
     {

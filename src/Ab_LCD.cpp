@@ -3,14 +3,14 @@
 void SerialLCD::popup_reconnecting_on()
 
 {
-    close_win("Popup_reconnect");
-    open_win("Popup_reconnect");
-    set_visible("Popup_reconnect", "true");
+    close_win("Popup_no_IP");
+    open_win("Popup_no_IP");
+    set_visible("Popup_no_IP", "true");
 }
 
 void SerialLCD::popup_reconnecting_off()
 {
-    set_visible("Popup_reconnect", "false");
+    set_visible("Popup_no_IP", "false");
 }
 
 void SerialLCD::refreshData()
@@ -383,18 +383,34 @@ void SerialLCD::page1()
         //     isLogin = false;
         // }
 
-        if (STONER.widget != NULL && strcmp(STONER.widget, "btn_setting_rfid") == 0 && !is_Setting_page_open)
+        if (STONER.widget != NULL && strcmp(STONER.widget, "btn_setting_rfid") == 0)
         {
             open_win("Setting_page");
             set_visible("Setting_page", "true");
+            get_checked("radio_btn_80");
+            // check radio button status
+            if (!radioButtonChecker)
+            {
+                set_value("radio_button", "radio_btn_80", "true");
+                radioButtonChecker = true;
+            }
 
             String HMI = "HMI Device Version: " + HMI_version;
             set_text("label", "label_HMI_ver", const_cast<char *>(HMI.c_str()));
             set_visible("label_HMI_ver", "true");
-            // fix sleep mode bug.
-            is_Setting_page_open = true;
+            page = 9;
         }
-        else if (STONER.widget != NULL && strcmp(STONER.widget, "radio_btn_80") == 0)
+
+        receive_over_flage = 0;
+    }
+}
+// setting
+void SerialLCD::page9()
+{
+    if (receive_over_flage == 1 && !sleepInProgress)
+    {
+
+        if (STONER.widget != NULL && strcmp(STONER.widget, "radio_btn_80") == 0)
         {
             set_brightness("80");
         }
@@ -405,9 +421,9 @@ void SerialLCD::page1()
         else if (STONER.widget != NULL && strcmp(STONER.widget, "btn_setting_exit") == 0)
         {
             set_visible("Setting_page", "false");
-            // fix sleep mode bug.
-            is_Setting_page_open = false;
+            page = 1;
         }
+
         receive_over_flage = 0;
     }
 }
@@ -770,8 +786,11 @@ void SerialLCD::page4()
         set_visible("button_dropoff_finished", "false");
         set_enable("button_dropoff_finished", "false");
 
-        set_text("button", "button_dropoff_pickup", "Pick Up");
+        set_visible("button_dropoff_pickup_copy1", "false");
+        set_enable("button_dropoff_pickup_copy1", "false");
 
+        set_text("button", "button_dropoff_pickup", "Pick Up");
+        set_text("button", "button_dropoff_pickup_copy1", "Undo");
         // char driverBuffer[64];
         // snprintf(driverBuffer, sizeof(driverBuffer), "Driver: %s", Driver.c_str());
         // set_text("label", "label_gohome", driverBuffer);
@@ -869,9 +888,11 @@ void SerialLCD::page5()
         {
             set_color("label_pickup", "bg_color", "4290098613");
             set_color("label_dropoff", "bg_color", "4290098613");
+            set_visible("button_dropoff_pickup_copy1", "true");
+            set_enable("button_dropoff_pickup_copy1", "true");
             step++;
         }
-        else if (step == 1 || step == 3 || step == 5) // step 1,3,5
+        else if (step % 2 == 1 && step < maxStep) // step 1,3,5,7
         {
             set_visible("button_dropoff_finished", "false");
             set_enable("button_dropoff_finished", "false");
@@ -884,7 +905,7 @@ void SerialLCD::page5()
 
             step++;
         }
-        else if (step == 2 || step == 4) // step 2,4
+        else if (step % 2 == 0 && step < (maxStep - 1)) // step 2,4
         {
             set_visible("button_dropoff_finished", "true");
             set_enable("button_dropoff_finished", "true");
@@ -897,7 +918,7 @@ void SerialLCD::page5()
 
             step++;
         }
-        else if (step == 6) // last Step No next Round button step 6
+        else if (step == maxStep - 1) // last Step No next Round button step 6
         {
             set_visible("button_dropoff_pickup", "false");
             set_enable("button_dropoff_pickup", "false");
@@ -910,7 +931,7 @@ void SerialLCD::page5()
 
             step++;
         }
-        else if (step == 7) // Finish Job Go to Flight list page step 7
+        else if (step == maxStep) // Finish Job Go to Flight list page step 7
         {
             job_step = 3;
         }
@@ -1039,7 +1060,12 @@ void SerialLCD::page5()
         else if (STONER.widget != NULL && (strcmp(STONER.widget, "button_dropoff_finished") == 0))
         {
             isStepAction = true;
-            step = 7;
+            step = maxStep;
+        }
+        else if (STONER.widget != NULL && (strcmp(STONER.widget, "button_dropoff_pickup_copy1") == 0))
+        {
+            isUndoAction = true;
+            Serial.print(F("Undo "));
         }
         receive_over_flage = 0;
     }

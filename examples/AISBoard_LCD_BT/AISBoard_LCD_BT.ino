@@ -59,7 +59,6 @@ int engineSecondCount = 0;
 int engine_flag = 0;
 
 unsigned long sleepStartTime = 0;
-bool sleepInProgress = true;
 unsigned long sleepDuration = 5 * 60000;
 
 void subscribeTopics(String GSEID)
@@ -157,7 +156,7 @@ void setup()
   xTaskCreatePinnedToCore(
       Sensors,   /* Task function. */
       "sensors", /* name of task. */
-      15000,     /* Stack size of task */
+      20000,     /* Stack size of task */
       NULL,      /* parameter of the task */
       1,         /* priority of the task */
       &sensors,  /* Task handle to keep track of created task */
@@ -170,6 +169,23 @@ void setup()
     delay(100);
   }
 
+  while (!GPS.begin())
+  {
+    Serial.println("GPS setup fail");
+    delay(100);
+  }
+  IPAddress deviceIP = Network.getDeviceIP();
+  Serial.print("Device IP: ");
+  Serial.println(deviceIP);
+  if (deviceIP == IPAddress(0, 0, 0, 0))
+  {
+    Serial.println("Failed to obtain IP address.");
+    set_text("label", "label_no_ip", "Failed to obtain IP address");
+  }
+  else
+  {
+    set_text("label", "label_no_ip", "Reconnecting...");
+  }
   while (!httpClient.setTime)
   {
     httpClient.getTimeFromAPI();
@@ -228,24 +244,6 @@ void Sensors(void *pvParameters)
   for (;;)
   {
     serial_receive();
-    // Sleep Mode Trigger
-    //    if (receive_over_flage == 1)
-    //    {
-    //      sleepStartTime = millis();
-    //      if (sleepInProgress)
-    //      {
-    //        close_win("Sleep_page");
-    //        set_sleep("false");
-    //        sleepInProgress = false;
-    //      }
-    //    }
-    //    if (!sleepInProgress && millis() - sleepStartTime >= sleepDuration)
-    //    {
-    //      sleepInProgress = true;
-    //      set_sleep("true");
-    //      open_win("Sleep_page");
-    //      receive_over_flage = 0;
-    //    }
     switch (LCD.page)
     {
     case 0:
@@ -266,6 +264,9 @@ void Sensors(void *pvParameters)
     case 5:
       LCD.page5();
       break;
+    case 9:
+      LCD.page9();
+      break;
     default:
       LCD.page0();
     }
@@ -285,6 +286,12 @@ void Sensors(void *pvParameters)
 
     if (box.engineStateADC == "ON")
     {
+      if (LCD.sleepInProgress)
+      {
+        close_win("Sleep_page");
+        set_sleep("false");
+        LCD.sleepInProgress = false;
+      }
 
       if (lastEngineCounter == 0)
       {
@@ -301,51 +308,58 @@ void Sensors(void *pvParameters)
           box.writeLongIntoEEPROM(box.ENGINE_HOURS_ADDRESS, box.engineMinCount);
         }
       }
-      if (lastGPSCounter == 0)
-      {
-        lastGPSCounter = now;
-      }
-      else if (now - lastGPSCounter > 5000)
-      {
-
-        if (GPS.available())
-        {
-          double GPS_latitude = GPS.latitude();
-          double GPS_longitude = GPS.longitude();
-          if (GPS_latitude > GPS.LATITUDE_MIN_THRESHOLD && GPS_longitude > GPS.LONGITUDE_MIN_THRESHOLD &&
-              GPS_latitude < GPS.LATITUDE_MAX_THRESHOLD && GPS_longitude < GPS.LONGITUDE_MAX_THRESHOLD)
-          {
-            lastGPSCounter = now;
-            GPS.preLocationlat = GPS.curLocationlat;
-            GPS.preLocationlng = GPS.curLocationlng;
-
-            GPS.curLocationlat = GPS_latitude;
-            GPS.curLocationlng = GPS_longitude;
-
-            double distance = GPS.haversine(GPS.preLocationlat, GPS.preLocationlng, GPS.curLocationlat, GPS.curLocationlng);
-            if (distance > GPS.DISTANCE_MIN_THRESHOLD && distance < GPS.DISTANCE_MAX_THRESHOLD)
-            {
-              // Serial.print("Distance (km): ");
-              // Serial.println(distance, 3);
-
-              // Serial.print("box.distanceCount (km): ");
-              // Serial.println(box.distanceCount, 3);
-
-              box.distanceCount += distance;
-              box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS, box.distanceCount);
-            }
-            else
-            {
-              // Serial.println("Small movement detected. Ignoring.");
-            }
-          }
-        }
-      }
+      //      if (lastGPSCounter == 0)
+      //      {
+      //        lastGPSCounter = now;
+      //      }
+      //      else if (now - lastGPSCounter > 5000)
+      //      {
+      //
+      //        if (GPS.available())
+      //        {
+      //          double GPS_latitude = GPS.latitude();
+      //          double GPS_longitude = GPS.longitude();
+      //          if (GPS_latitude > GPS.LATITUDE_MIN_THRESHOLD && GPS_longitude > GPS.LONGITUDE_MIN_THRESHOLD &&
+      //              GPS_latitude < GPS.LATITUDE_MAX_THRESHOLD && GPS_longitude < GPS.LONGITUDE_MAX_THRESHOLD)
+      //          {
+      //            lastGPSCounter = now;
+      //            GPS.preLocationlat = GPS.curLocationlat;
+      //            GPS.preLocationlng = GPS.curLocationlng;
+      //
+      //            GPS.curLocationlat = GPS_latitude;
+      //            GPS.curLocationlng = GPS_longitude;
+      //
+      //            double distance = GPS.haversine(GPS.preLocationlat, GPS.preLocationlng, GPS.curLocationlat, GPS.curLocationlng);
+      //            if (distance > GPS.DISTANCE_MIN_THRESHOLD && distance < GPS.DISTANCE_MAX_THRESHOLD)
+      //            {
+      //              // Serial.print("Distance (km): ");
+      //              // Serial.println(distance, 3);
+      //
+      //              // Serial.print("box.distanceCount (km): ");
+      //              // Serial.println(box.distanceCount, 3);
+      //
+      //              box.distanceCount += distance;
+      //              box.writeDoubleIntoEEPROM(box.DISTANCE_ADDRESS, box.distanceCount);
+      //            }
+      //            else
+      //            {
+      //              // Serial.println("Small movement detected. Ignoring.");
+      //            }
+      //          }
+      //        }
+      //      }
     }
     else
     {
+
       lastEngineCounter = 0;
       lastGPSCounter = 0;
+      if (!LCD.sleepInProgress)
+      {
+        LCD.sleepInProgress = true;
+        set_sleep("true");
+        open_win("Sleep_page");
+      }
     }
     /////////////////////////////////////////////
     //  RFID Sound
@@ -431,7 +445,7 @@ void loop()
     // select flight
     if (LCD.isSelectFlight)
     {
-      if (LCD.page == 4 && LCD.taskId != "" && LCD.employeeId != "" && LCD.GSEId != "")
+      if (LCD.page == 4 && LCD.taskId != "" && LCD.GSEId != "")
       {
         String taskId = String(LCD.taskId);
         String gse = String(LCD.GSEId);
@@ -520,6 +534,7 @@ void loop()
     long now = millis();
     if (box.engineStateADC == "FF")
     {
+
       if (MQTT_interval != MQTT_STANDBY_TIME)
       {
         MQTT_interval = MQTT_STANDBY_TIME;
@@ -529,7 +544,6 @@ void loop()
     }
     else
     {
-
       if (MQTT_interval != MQTT_TIMEOUT)
       {
         MQTT_interval = MQTT_TIMEOUT;
