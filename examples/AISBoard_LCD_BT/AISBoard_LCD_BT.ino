@@ -42,6 +42,7 @@ String SERVER_TOKEN = _SERVER_TOKEN;
 unsigned long card_previousMillis = 0;
 const long card_duration = 300;
 bool isSubscribeTopics = false;
+bool checkSleepPageOn = false;
 
 Ab_MQTTClient mqttClient(mqtt_id, broker, port, mqttUsername, mqttPassword);
 TaskHandle_t sensors;
@@ -98,6 +99,7 @@ void IRAM_ATTR onTimer()
     Serial.println("timerAlarmDisable");
     timerDetachInterrupt(My_timer); // Detach the interrupt first
     timerAlarmDisable(My_timer);    // Disable the timer
+    checkSleepPageOn = true;
   }
 
   //  if (LCD.page == 5)
@@ -124,9 +126,6 @@ void setup()
   EEPROM.begin(EEPROM_SIZE);
   box.initialize();
   box.id = mqtt_id;
-
-  pinMode(BUZZER_PIN, OUTPUT);
-  digitalWrite(BUZZER_PIN, LOW);
 
   pinMode(BUZZER_LED_PIN, OUTPUT);
   digitalWrite(BUZZER_LED_PIN, LOW);
@@ -286,11 +285,13 @@ void Sensors(void *pvParameters)
 
     if (box.engineStateADC == "ON")
     {
-      if (LCD.sleepInProgress)
+      if (LCD.sleepInProgress || checkSleepPageOn)
       {
         close_win("Sleep_page");
         set_sleep("false");
         LCD.sleepInProgress = false;
+        checkSleepPageOn = false;
+        Serial.println("wake");
       }
 
       if (lastEngineCounter == 0)
@@ -354,11 +355,13 @@ void Sensors(void *pvParameters)
 
       lastEngineCounter = 0;
       lastGPSCounter = 0;
-      if (!LCD.sleepInProgress)
+      if (!LCD.sleepInProgress || checkSleepPageOn)
       {
         LCD.sleepInProgress = true;
         set_sleep("true");
         open_win("Sleep_page");
+        checkSleepPageOn = false;
+        Serial.println("Sleep");
       }
     }
     /////////////////////////////////////////////
@@ -499,6 +502,34 @@ void loop()
         String payload = "{\"unit\":\"" + unitName + "\",\"task_assignment_id\":\"" + taskId + "\",\"step\":\"" + step + "\"}";
         Serial.println(payload);
         LCD.isStepAction = false;
+        // back to flight page
+        LCD.isCancelTask_Ok = true;
+      }
+    }
+    if (LCD.isUndoAction)
+    {
+      if (LCD.page == 5 && LCD.taskId != "")
+      {
+        String taskId = String(LCD.taskId);
+        String gse = String(LCD.GSEId);
+        String topic = "server/request/taskaction/cancel/";
+        String payload = "{\"task_assignment_id\":\"" + taskId + "\",\"vehicle\":\"" + gse + "\"}";
+        Serial.println(payload);
+        // mqttClient.publish(topic.c_str(), payload.c_str());
+        LCD.isUndoAction = false;
+        // Start Time Out
+        LCD.timeOutStartTime = millis();
+        LCD.timeOutInProgress = true;
+      }
+      else
+      {
+        Serial.println("Undo action failed");
+        String taskId = String(LCD.taskId);
+        String gse = String(LCD.GSEId);
+        String topic = "server/request/taskaction/cancel/";
+        String payload = "{\"task_assignment_id\":\"" + taskId + "\",\"vehicle\":\"" + gse + "\"}";
+        Serial.println(payload);
+        LCD.isUndoAction = false;
         // back to flight page
         LCD.isCancelTask_Ok = true;
       }
