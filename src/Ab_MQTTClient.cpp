@@ -186,7 +186,7 @@ void Ab_MQTTClient::handleFlightListTopic(char *topic, byte *payload, unsigned i
             flight["bay"] = obj["bay"];
             if (obj["gate"] == "")
             {
-                flight["gate"] = "-";
+                flight["gate"] = "--";
             }
             else
             {
@@ -376,11 +376,14 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
     filter["event"] = true;
     filter["id"] = true;
     filter["flight"]["flight_number"] = true;
+    filter["flight"]["estimate_flight_time"] = true;
+    filter["flight"]["schedule_flight_time"] = true;
+    filter["flight"]["bay"] = true;
+    filter["flight"]["gate"] = true;
     filter["last_action"] = true;
-    LCD.currentFlight = "";
+    LCD.task_flight = "";
     StaticJsonDocument<256> jsonDataFromServer;
-    // DeserializationError error = deserializeJson(jsonDataFromServer, payload, length);
-    serializeJsonPretty(jsonDataFromServer, Serial);
+
     DeserializationError error = deserializeJson(jsonDataFromServer, payload, DeserializationOption::Filter(filter));
     if (error)
     {
@@ -389,8 +392,10 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
         LCD.driverLoginFailed = true;
         return;
     }
+
     String event = jsonDataFromServer["event"];
-    if (event == "get" || event == "create")
+
+    if (event == "update" || event == "undo" || event == "create" || event == "get")
     {
         if (!LCD.isInitalTaskReady)
         {
@@ -401,72 +406,57 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
 
         if (id != "null")
         {
-            String currentFlight = jsonDataFromServer["flight"]["flight_number"];
-            LCD.currentFlight = currentFlight;
 
-            LCD.isSelectFlight_Ok = true;
-            LCD.taskId = id;
-            // String flight = jsonDataFromServer["flight"];
-            // LCD.currentFlight = flight;
-            // เด่ววววว
-            Serial.println(event);
-            Serial.println("task ID " + LCD.taskId);
-            Serial.println(LCD.currentFlight);
             uint8_t step = jsonDataFromServer["last_action"]["step"];
-            Serial.print("last step ");
-            Serial.println(step);
-            // Set recconect Step and Job Step
-            if (step < LCD.maxStep)
-            {
-                if (step == 0)
-                {
-                    LCD.job_step = 0;
-                }
-                else if (step % 2 == 1) // 1,3,5
-                {
-                    LCD.job_step = 1;
-                }
-                else if (step == (LCD.maxStep - 1))
-                {
-                    LCD.job_step = 2;
-                }
-                else // 2,4
-                {
-                    LCD.job_step = 2;
-                    set_text("button", "button_dropoff_pickup", "Next Round"); // re-setup
-                }
+            LCD.task_step = step;
+            Serial.println(event);
+            Serial.print("current step ");
+            Serial.println(LCD.task_step);
 
-                LCD.currentRound = (step + 1) / 2;
-                LCD.step = step + 1;
-                Serial.print("currentRound ");
-                Serial.println(LCD.currentRound);
+            String currentBay = jsonDataFromServer["flight"]["bay"];
+            LCD.task_bay = currentBay;
+            String currentGate = jsonDataFromServer["flight"]["gate"];
+            LCD.task_gate = currentGate;
+
+            const char *scheduleFlightTime = jsonDataFromServer["flight"]["schedule_flight_time"];
+            String ST = String(scheduleFlightTime).substring(16, 11);
+            const char *estimateFlightTime = jsonDataFromServer["flight"]["estimate_flight_time"];
+            String ET = String(estimateFlightTime).substring(16, 11);
+            LCD.task_st = ST;
+            if (!ET.isEmpty())
+            {
+                LCD.task_et = ET;
             }
-            Serial.print("job_step ");
-            Serial.println(LCD.job_step);
+            else
+            {
+                LCD.task_et = "--:--";
+            }
+
+            LCD.isStepAction_Ok = true;
+            String currentFlight = jsonDataFromServer["flight"]["flight_number"];
+            LCD.task_flight = currentFlight;
+            Serial.println("info");
+            Serial.println(LCD.task_flight);
+            Serial.println(LCD.task_st);
+            Serial.println(LCD.task_et);
+            Serial.println(LCD.task_bay);
+            Serial.println(LCD.task_gate);
+            LCD.updateDisplay = true;
+            if (event == "create" || event == "get")
+            {
+                LCD.isSelectFlight_Ok = true;
+                LCD.taskId = id;
+            }
         }
         else
         {
             Serial.println("No task_assignment_id");
         }
     }
-    else if (event == "update")
-    {
-        uint8_t step = jsonDataFromServer["last_action"]["step"];
-        Serial.println(event);
-        Serial.print("last step ");
-        Serial.println(step);
-        LCD.isStepAction_Ok = true;
-        String currentFlight = jsonDataFromServer["flight"]["flight_number"];
-        LCD.currentFlight = currentFlight;
-    }
     else if (event == "cancel")
     {
         Serial.println("cancel");
         LCD.isCancelTask_Ok = true;
-    }
-    else if (event == "undo")
-    {
-        Serial.print("undo");
     }
     else if (event == "err")
     {

@@ -729,6 +729,7 @@ void SerialLCD::page4()
         set_visible("Bottom_overlay", "false");
 
         open_win("Round_overlay");
+
         if (flight_type == "DEP")
         {
             const char *flightNumber = _selected_flight["flight"];
@@ -786,11 +787,11 @@ void SerialLCD::page4()
         set_visible("button_dropoff_finished", "false");
         set_enable("button_dropoff_finished", "false");
 
-        set_visible("button_dropoff_pickup_copy1", "false");
-        set_enable("button_dropoff_pickup_copy1", "false");
+        set_visible("button_dropoff_undo", "false");
+        set_enable("button_dropoff_undo", "false");
 
         set_text("button", "button_dropoff_pickup", "Pick Up");
-        set_text("button", "button_dropoff_pickup_copy1", "Undo");
+        set_text("button", "button_dropoff_undo", "Undo");
         // char driverBuffer[64];
         // snprintf(driverBuffer, sizeof(driverBuffer), "Driver: %s", Driver.c_str());
         // set_text("label", "label_gohome", driverBuffer);
@@ -804,7 +805,7 @@ void SerialLCD::page4()
 
         set_visible("Accept_flight", "false");
 
-        step = 0;
+        task_step = -1;
         startTime = 0;
         page = 5;
         char localPageStr[3];
@@ -866,7 +867,9 @@ void SerialLCD::page5()
         char localPageStr[3];
         snprintf(localPageStr, sizeof(localPageStr), "%d", page);
         set_text("label", "local_page", localPageStr);
+
         close_win("Round_overlay");
+
         set_visible("Top_overlay_status", "false");
         set_visible("Bottom_overlay", "false");
         set_visible("Center_overlay_confirm", "false");
@@ -875,6 +878,7 @@ void SerialLCD::page5()
         set_visible("Center_overlay_finished", "false");
         set_visible("Cancel_flight", "false");
         set_visible("Blank", "false");
+
         refreshData();
 
         isCancelTask_Ok = false;
@@ -883,143 +887,219 @@ void SerialLCD::page5()
 
     if (isStepAction_Ok)
     {
+        if (flight_type == "DEP")
+        {
+            String flightNumberString = "Flight: " + task_flight;
+            set_text("label", "label_ovl_flight_data", const_cast<char *>(flightNumberString.c_str()));
 
-        if (step == 0) // Initial step 0
+            String STString = "STD: " + task_st;
+            set_text("label", "label_ovl_ST_data", const_cast<char *>(STString.c_str()));
+
+            String ETString = "ETD: " + task_et;
+            set_text("label", "label_ovl_ET_data", const_cast<char *>(ETString.c_str()));
+
+            String gateString = task_gate;
+            set_text("label", "label_pickup", const_cast<char *>(gateString.c_str()));
+
+            String bayString = task_bay;
+            set_text("label", "label_dropoff", const_cast<char *>(bayString.c_str()));
+        }
+        else if (flight_type == "ARR")
+        {
+            String flightNumberString = "Flight: " + task_flight;
+            set_text("label", "label_ovl_flight_data", const_cast<char *>(flightNumberString.c_str()));
+
+            String STString = "STA: " + task_st;
+            set_text("label", "label_ovl_ST_data", const_cast<char *>(STString.c_str()));
+
+            String ETString = "ETA: " + task_et;
+            set_text("label", "label_ovl_ET_data", const_cast<char *>(ETString.c_str()));
+
+            String bayString = task_bay;
+            set_text("label", "label_pickup", const_cast<char *>(bayString.c_str()));
+
+            String gateString = task_gate;
+            set_text("label", "label_dropoff", const_cast<char *>(gateString.c_str()));
+        }
+
+        if (task_step >= 0 && task_step <= 2)
+        {
+            currentRound = 1;
+            char currentRoundStr[15];
+            snprintf(currentRoundStr, sizeof(currentRoundStr), "Round: %d", currentRound);
+            set_text("label", "round_label", currentRoundStr);
+        }
+        else
+        {
+            currentRound = (task_step + 1) / 2;
+            char currentRoundStr[15];
+            snprintf(currentRoundStr, sizeof(currentRoundStr), "Round: %d", currentRound);
+            set_text("label", "round_label", currentRoundStr);
+        }
+
+        if (task_step == 0) // Initial step 0
         {
             set_color("label_pickup", "bg_color", "4290098613");
             set_color("label_dropoff", "bg_color", "4290098613");
-            set_visible("button_dropoff_pickup_copy1", "true");
-            set_enable("button_dropoff_pickup_copy1", "true");
-            step++;
-        }
-        else if (step % 2 == 1 && step < maxStep) // step 1,3,5,7
-        {
+
+            set_visible("button_dropoff_undo", "false");
+            set_enable("button_dropoff_undo", "false");
+
+            set_visible("button_dropoff_pickup", "true");
+            set_enable("button_dropoff_pickup", "true");
+
             set_visible("button_dropoff_finished", "false");
             set_enable("button_dropoff_finished", "false");
 
-            set_text("button", "button_dropoff_pickup", "Drop Off");
-            job_step = 1;
-
+            job_step = 0;
+        }
+        else if (task_step % 2 == 1 && task_step < maxStep) // step 1,3,5,7
+        {
             set_color("label_pickup", "bg_color", "4282824813");
             set_color("label_dropoff", "bg_color", "4290098613");
 
-            step++;
+            set_visible("button_dropoff_undo", "true");
+            set_enable("button_dropoff_undo", "true");
+
+            set_visible("button_dropoff_pickup", "true");
+            set_enable("button_dropoff_pickup", "true");
+            set_text("button", "button_dropoff_pickup", "Drop Off");
+
+            set_visible("button_dropoff_finished", "false");
+            set_enable("button_dropoff_finished", "false");
+
+            job_step = 1;
         }
-        else if (step % 2 == 0 && step < (maxStep - 1)) // step 2,4
+        else if (task_step % 2 == 0 && task_step < (maxStep - 1)) // step 2,4
         {
-            set_visible("button_dropoff_finished", "true");
-            set_enable("button_dropoff_finished", "true");
-
-            set_text("button", "button_dropoff_pickup", "Next Round");
-            job_step = 2;
-
             set_color("label_pickup", "bg_color", "4282824813");
             set_color("label_dropoff", "bg_color", "4282824813");
 
-            step++;
+            set_visible("button_dropoff_undo", "true");
+            set_enable("button_dropoff_undo", "true");
+
+            set_visible("button_dropoff_pickup", "true");
+            set_enable("button_dropoff_pickup", "true");
+            set_text("button", "button_dropoff_pickup", "Next Round");
+
+            set_visible("button_dropoff_finished", "true");
+            set_enable("button_dropoff_finished", "true");
+
+            job_step = 2;
         }
-        else if (step == maxStep - 1) // last Step No next Round button step 6
+        else if (task_step == maxStep - 1) // last Step No next Round button step 6
         {
+            set_color("label_pickup", "bg_color", "4282824813");
+            set_color("label_dropoff", "bg_color", "4282824813");
+
+            set_visible("button_dropoff_undo", "true");
+            set_enable("button_dropoff_undo", "true");
+
             set_visible("button_dropoff_pickup", "false");
             set_enable("button_dropoff_pickup", "false");
+
             set_visible("button_dropoff_finished", "true");
             set_enable("button_dropoff_finished", "true");
             job_step = 2;
-
-            set_color("label_pickup", "bg_color", "4282824813");
-            set_color("label_dropoff", "bg_color", "4282824813");
-
-            step++;
         }
-        else if (step == maxStep) // Finish Job Go to Flight list page step 7
+        else if (task_step == maxStep) // Finish Job Go to Flight list page step 7
         {
             job_step = 3;
         }
 
         isStepAction_Ok = false;
     }
-
-    if (job_step == 0)
+    if (updateDisplay)
     {
 
-        set_visible("Center_overlay_confirm", "true");
-    }
-    else if (job_step == 1)
-    {
-
-        set_visible("Center_overlay_pickup", "true");
-    }
-    else if (job_step == 2)
-    {
-
-        set_visible("Center_overlay_dropoff", "true");
-    }
-    else if (job_step == 3)
-    {
-        set_visible("Center_overlay_finished", "true");
-        // set_visible("label_gohome", "true");
-        // set_visible("label_gohome_data", "true");
-        // set_text("label", "label_gohome", "... Return in");
-        unsigned long now = millis();
-        // if (startTime == 0)
-        // {
-        //     startTime = now;
-        // }
-        unsigned long elapsedTime = now - startTime;
-
-        if (elapsedTime >= countdownDuration)
+        if (job_step == 0)
         {
-            page = 2;
-            char localPageStr[3];
-            snprintf(localPageStr, sizeof(localPageStr), "%d", page);
-            set_text("label", "local_page", localPageStr);
 
-            // set_text("label", "label_gohome_data", "0");
-            close_win("Round_overlay");
-
-            // set_visible("label_gohome", "false");
-            // set_visible("label_gohome_data", "false");
-
-            set_visible("Center_overlay_confirm", "false");
+            set_visible("Center_overlay_confirm", "true");
             set_visible("Center_overlay_pickup", "false");
             set_visible("Center_overlay_dropoff", "false");
-
-            set_visible("Top_overlay_status", "false");
-            set_visible("Bottom_overlay", "false");
-            set_visible("Center_overlay_finished", "false");
-            set_visible("Cancel_flight", "false");
-            set_visible("Blank", "false");
-
-            // recheck_flight_list = true;
-            // set_visible("Overlay_flight", "false");
-            // set_visible("Popup_loading", "true");
-            // loadingStartTime = millis();
-            // loadingInProgress = true;
-            set_visible("Overlay_flight", "false");
-            set_visible("Flight_list", "false");
-            set_visible("Flight_arr_dep", "true");
-
-            flight_type = "";
-            char localTypeStr[5];
-            snprintf(localTypeStr, sizeof(localTypeStr), "%s", flight_type);
-            set_text("label", "local_type", localTypeStr);
         }
-        else
+        else if (job_step == 1)
         {
-            unsigned long remainingTime = (countdownDuration - elapsedTime) / 1000;
-            char remainingTimeStr[3];
-            // snprintf(remainingTimeStr, sizeof(remainingTimeStr), "%lu", remainingTime);
-            // set_text("label", "label_gohome_data", remainingTimeStr);
+            set_visible("Center_overlay_pickup", "true");
+            set_visible("Center_overlay_confirm", "false");
+            set_visible("Center_overlay_dropoff", "false");
         }
-    }
+        else if (job_step == 2)
+        {
+            set_visible("Center_overlay_dropoff", "true");
+            set_visible("Center_overlay_confirm", "false");
+            set_visible("Center_overlay_pickup", "false");
+        }
+        else if (job_step == 3)
+        {
+            set_visible("Center_overlay_finished", "true");
+            // set_visible("label_gohome", "true");
+            // set_visible("label_gohome_data", "true");
+            // set_text("label", "label_gohome", "... Return in");
+            unsigned long now = millis();
+            // if (startTime == 0)
+            // {
+            //     startTime = now;
+            // }
+            unsigned long elapsedTime = now - startTime;
 
+            if (elapsedTime >= countdownDuration)
+            {
+                page = 2;
+                char localPageStr[3];
+                snprintf(localPageStr, sizeof(localPageStr), "%d", page);
+                set_text("label", "local_page", localPageStr);
+
+                // set_text("label", "label_gohome_data", "0");
+                close_win("Round_overlay");
+
+                // set_visible("label_gohome", "false");
+                // set_visible("label_gohome_data", "false");
+
+                set_visible("Center_overlay_confirm", "false");
+                set_visible("Center_overlay_pickup", "false");
+                set_visible("Center_overlay_dropoff", "false");
+
+                set_visible("Top_overlay_status", "false");
+                set_visible("Bottom_overlay", "false");
+                set_visible("Center_overlay_finished", "false");
+                set_visible("Cancel_flight", "false");
+                set_visible("Blank", "false");
+
+                // recheck_flight_list = true;
+                // set_visible("Overlay_flight", "false");
+                // set_visible("Popup_loading", "true");
+                // loadingStartTime = millis();
+                // loadingInProgress = true;
+                set_visible("Overlay_flight", "false");
+                set_visible("Flight_list", "false");
+                set_visible("Flight_arr_dep", "true");
+
+                flight_type = "";
+                char localTypeStr[5];
+                snprintf(localTypeStr, sizeof(localTypeStr), "%s", flight_type);
+                set_text("label", "local_type", localTypeStr);
+            }
+            else
+            {
+                unsigned long remainingTime = (countdownDuration - elapsedTime) / 1000;
+                char remainingTimeStr[3];
+                // snprintf(remainingTimeStr, sizeof(remainingTimeStr), "%lu", remainingTime);
+                // set_text("label", "label_gohome_data", remainingTimeStr);
+            }
+        }
+        updateDisplay = false;
+    }
     if (receive_over_flage == 1)
     {
+        updateDisplay = true;
+
         if (STONER.widget != NULL && (strcmp(STONER.widget, "btn_ovl_exit") == 0))
         {
             open_win("Cancel_flight");
             char flightNumber[20];
-            snprintf(flightNumber, sizeof(flightNumber), "%s", currentFlight.c_str());
+            snprintf(flightNumber, sizeof(flightNumber), "%s", task_flight.c_str());
             set_text("label", "label_cancel_flight_data", flightNumber);
             set_visible("label_cancel_flight_data", "true");
             set_visible("Round_overlay", "false");
@@ -1038,19 +1118,17 @@ void SerialLCD::page5()
         {
             if (job_step == 2) // Next Round
             {
-                currentRound++;
-                set_visible("Center_overlay_pickup", "false");
-                set_visible("Center_overlay_dropoff", "false");
-
                 set_text("button", "button_dropoff_pickup", "Pick Up");
                 job_step = 0;
                 // close_win("round_overlay");
                 char currentRoundStr[15];
-                snprintf(currentRoundStr, sizeof(currentRoundStr), "Round: %d", currentRound);
+                snprintf(currentRoundStr, sizeof(currentRoundStr), "Round: %d", currentRound + 1);
                 set_text("label", "round_label", currentRoundStr);
 
                 set_color("label_pickup", "bg_color", "4290098613");
                 set_color("label_dropoff", "bg_color", "4290098613");
+                set_visible("button_dropoff_finished", "false");
+                set_enable("button_dropoff_finished", "false");
             }
             else
             {
@@ -1059,13 +1137,28 @@ void SerialLCD::page5()
         }
         else if (STONER.widget != NULL && (strcmp(STONER.widget, "button_dropoff_finished") == 0))
         {
+            task_step = maxStep - 1;
             isStepAction = true;
-            step = maxStep;
         }
-        else if (STONER.widget != NULL && (strcmp(STONER.widget, "button_dropoff_pickup_copy1") == 0))
+        else if (STONER.widget != NULL && (strcmp(STONER.widget, "button_dropoff_undo") == 0))
         {
-            isUndoAction = true;
-            Serial.print(F("Undo "));
+            if (job_step == 0) // Next Round
+            {
+                set_text("button", "button_dropoff_pickup", "Next Round");
+                job_step = 2;
+                // close_win("round_overlay");
+                char currentRoundStr[15];
+                snprintf(currentRoundStr, sizeof(currentRoundStr), "Round: %d", currentRound);
+                set_text("label", "round_label", currentRoundStr);
+                set_color("label_pickup", "bg_color", "4282824813");
+                set_color("label_dropoff", "bg_color", "4282824813");
+                set_visible("button_dropoff_finished", "true");
+                set_enable("button_dropoff_finished", "true");
+            }
+            else
+            {
+                isUndoAction = true;
+            }
         }
         receive_over_flage = 0;
     }

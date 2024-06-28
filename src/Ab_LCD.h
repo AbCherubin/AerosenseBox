@@ -54,8 +54,8 @@ public:
 
   uint8_t page = 0;
   uint8_t job_step = 0;
-  uint8_t step = 0;
   uint8_t currentRound = 0;
+  uint8_t currentRound_offset = 0;
   uint8_t maxStep = (roundTask * 2) + 1;
 
   bool is4G;
@@ -83,6 +83,9 @@ public:
   bool isInitalTaskReady = false;
 
   bool sleepInProgress = true;
+
+  bool updateDisplay = false;
+
   String Datetime;
   String GSEId;
   String Flight;
@@ -94,7 +97,6 @@ public:
   String employeeId;
   String taskId;
   String unitName;
-  String currentFlight;
   // Preview FIGHTLIST
 
   String flight_list = "";
@@ -107,6 +109,14 @@ public:
   unsigned long timeOutStartTime = 0;
   bool timeOutInProgress = false;
   unsigned long timeOutDuration = 4000;
+
+  // task page
+  String task_gate;
+  String task_bay;
+  String task_st;
+  String task_et;
+  String task_flight;
+  int8_t task_step = -1;
 };
 
 #endif

@@ -291,7 +291,6 @@ void Sensors(void *pvParameters)
         set_sleep("false");
         LCD.sleepInProgress = false;
         checkSleepPageOn = false;
-        Serial.println("wake");
       }
 
       if (lastEngineCounter == 0)
@@ -361,7 +360,6 @@ void Sensors(void *pvParameters)
         set_sleep("true");
         open_win("Sleep_page");
         checkSleepPageOn = false;
-        Serial.println("Sleep");
       }
     }
     /////////////////////////////////////////////
@@ -482,7 +480,7 @@ void loop()
       {
         String unitName = String(LCD.unitName);
         String taskId = String(LCD.taskId);
-        String step = String(LCD.step);
+        String step = String(LCD.task_step + 1);
         String topic = "server/request/create_task_action/";
         String payload = "{\"unit\":\"" + unitName + "\",\"task_assignment_id\":\"" + taskId + "\",\"step\":\"" + step + "\"}";
         Serial.println(payload);
@@ -497,7 +495,7 @@ void loop()
         Serial.println("select action failed");
         String unitName = String(LCD.unitName);
         String taskId = String(LCD.taskId);
-        String step = String(LCD.step);
+        String step = String(LCD.task_step + 1);
         String topic = "server/request/create_task_action/";
         String payload = "{\"unit\":\"" + unitName + "\",\"task_assignment_id\":\"" + taskId + "\",\"step\":\"" + step + "\"}";
         Serial.println(payload);
@@ -508,14 +506,14 @@ void loop()
     }
     if (LCD.isUndoAction)
     {
-      if (LCD.page == 5 && LCD.taskId != "")
+      if (LCD.page == 5 && LCD.taskId != "" && LCD.task_step > 0)
       {
         String taskId = String(LCD.taskId);
         String gse = String(LCD.GSEId);
         String topic = "server/request/taskaction/cancel/";
         String payload = "{\"task_assignment_id\":\"" + taskId + "\",\"vehicle\":\"" + gse + "\"}";
         Serial.println(payload);
-        // mqttClient.publish(topic.c_str(), payload.c_str());
+        mqttClient.publish(topic.c_str(), payload.c_str());
         LCD.isUndoAction = false;
         // Start Time Out
         LCD.timeOutStartTime = millis();
@@ -615,8 +613,6 @@ void loop()
       String mqttPayload = box.getMqttPayload();
       mqttClient.publish(box.MQTT_SERVER_MAIN_TOPIC, mqttPayload.c_str());
       Serial.println(mqttPayload);
-      Serial.print(F("Free heap: "));
-      Serial.println(ESP.getFreeHeap());
     }
   }
   mqttClient.loop();
