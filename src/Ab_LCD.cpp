@@ -1,16 +1,62 @@
 #include "Ab_LCD.h"
 
+void SerialLCD::backlog_page()
+{
+    open_win("Blank");
+    set_visible("Blank", "true");
+    open_win("Overlay_flight");
+    set_visible("Blank", "false");
+
+    open_win("Top_overlay_status");
+    open_win("Bottom_overlay");
+
+    open_win("Center_overlay_confirm");
+    set_visible("Center_overlay_confirm", "true");
+
+    open_win("Center_overlay_pickup");
+    set_visible("Center_overlay_pickup", "false");
+
+    open_win("Center_overlay_dropoff");
+    set_visible("Center_overlay_dropoff", "false");
+
+    open_win("Center_overlay_finished");
+    set_visible("Center_overlay_finished", "false");
+
+    set_visible("Top_overlay_status", "false");
+    set_visible("Bottom_overlay", "false");
+
+    open_win("Round_overlay");
+
+    set_visible("label_ovl_flight_data", "true");
+    set_visible("label_ovl_ST_data", "true");
+    set_visible("label_ovl_ET_data", "true");
+    set_visible("label_pickup", "true");
+    set_visible("label_dropoff", "true");
+
+    set_visible("Top_overlay_status", "true");
+    set_visible("Bottom_overlay", "true");
+
+    startTime = 0;
+    page = 5;
+    char localPageStr[3];
+    snprintf(localPageStr, sizeof(localPageStr), "%d", page);
+    set_text("label", "local_page", localPageStr);
+
+    backlog = false;
+}
+
 void SerialLCD::popup_reconnecting_on()
 
 {
-    close_win("Popup_no_IP");
-    open_win("Popup_no_IP");
-    set_visible("Popup_no_IP", "true");
+    close_win("Popup_reconnect");
+    open_win("Popup_reconnect");
+    set_text("label", "label_reconnect", "Reconnecting ...");
+    set_visible("Popup_reconnect", "true");
 }
 
 void SerialLCD::popup_reconnecting_off()
 {
-    set_visible("Popup_no_IP", "false");
+    set_visible("Popup_reconnect", "false");
 }
 
 void SerialLCD::refreshData()
@@ -175,6 +221,7 @@ void SerialLCD::Initial_setup()
     char localPageStr[3];
     snprintf(localPageStr, sizeof(localPageStr), "%d", page);
     set_text("label", "local_page", localPageStr);
+    isLogout = true;
 }
 
 void SerialLCD::page0()
@@ -182,9 +229,11 @@ void SerialLCD::page0()
     if (timer_flag == 1)
     {
         // set_sys("sys_hello");
+
         set_sys("sys_version");
         timer_flag = 0;
         get_text("label", "local_rfid");
+
         // get_text("label", "local_page");
     }
 
@@ -266,6 +315,10 @@ void SerialLCD::page0()
 
                 uint8_t uint8Value = static_cast<uint8_t>(intValue);
                 page = uint8Value;
+
+                // close win
+                close_win("Logout_confirm");
+
                 // if the page is selecting flight(4) then back to flight list(3) page
                 if (page == 4)
                 {
@@ -276,32 +329,42 @@ void SerialLCD::page0()
                     snprintf(localPageStr, sizeof(localPageStr), "%d", page);
                     set_text("label", "local_page", localPageStr);
                 }
-                // if (taskId && selected_flight)
-                // {
-                //     page = 4;
-                //     isSelectFlight_Ok = true;
-                // }
+
+                // FLight list page
+
+                if (page == 3)
+                {
+                    if (flight_type == "")
+                    {
+                        set_visible("Overlay_flight", "false");
+                        set_visible("Flight_list", "false");
+                        set_visible("Flight_arr_dep", "true");
+
+                        page = 2;
+                        char localPageStr[3];
+                        snprintf(localPageStr, sizeof(localPageStr), "%d", page);
+                        set_text("label", "local_page", localPageStr);
+                    }
+                    else
+                    {
+                        recheck_flight_list = true;
+                    }
+                }
+
                 // if the page is in task page(5) but no task then back to flight list
                 if (page == 5 && taskId == "")
                 {
-
                     isCancelTask_Ok = true;
                 }
-                if (page != 3)
-                {
-                    popup_reconnecting_off();
-                }
-                else
-                {
-                    recheck_flight_list = true;
-                }
-                Serial.print("Task ID: ");
-                Serial.println(taskId);
-                Serial.print("Page: ");
-                Serial.println(page);
+
+                // Serial.print("Task ID: ");
+                // Serial.println(taskId);
+                // Serial.print("Page: ");
+                // Serial.println(page);
                 set_sys("sys_version");
-                Serial.println(STONER.data);
+                // Serial.println(STONER.data);
                 HMI_version = String(STONER.data);
+                popup_reconnecting_off();
             }
             else
             {
@@ -321,11 +384,160 @@ void SerialLCD::page0()
         receive_over_flage = 0;
     }
 }
+// setting
+void SerialLCD::page90()
+{
+    if (receive_over_flage == 1 && !sleepInProgress)
+    {
 
+        if (STONER.widget != NULL && strcmp(STONER.widget, "radio_btn_80") == 0)
+        {
+            set_brightness("80");
+        }
+        else if (STONER.widget != NULL && strcmp(STONER.widget, "radio_btn_100") == 0)
+        {
+            set_brightness("100");
+        }
+        else if (STONER.widget != NULL && strcmp(STONER.widget, "btn_setting_exit") == 0)
+        {
+            set_visible("Setting_page", "false");
+            page = 1;
+        }
+        else
+        {
+            Serial.println("XXX ERR XXX");
+        }
+
+        receive_over_flage = 0;
+    }
+}
+// Logout
+void SerialLCD::page91()
+{
+    if (isUnfinished_Ok)
+    {
+        set_visible("Logout_confirm", "false");
+        Serial.println("!!!Unfinished success");
+
+        // page = return_page;
+        // return_page = 0;
+        open_win("Flight_arr_dep");
+        set_visible("Flight_arr_dep", "true");
+        set_visible("Accept_flight", "false");
+        set_visible("Overlay_flight", "false");
+        set_visible("Flight_list", "false");
+
+        return_page = 0;
+        _stone_recive_free(const_cast<char *>("widget"));
+        page = 2;
+        char localPageStr[3];
+        snprintf(localPageStr, sizeof(localPageStr), "%d", page);
+        set_text("label", "local_page", localPageStr);
+
+        char localrfidStr[20];
+        snprintf(localrfidStr, sizeof(localrfidStr), "%s", employeeId.c_str());
+        set_text("label", "local_rfid", localrfidStr);
+
+        char driverBuffer[64];
+        snprintf(driverBuffer, sizeof(driverBuffer), "%s", Driver.c_str());
+        set_text("label", "label_user_data", driverBuffer);
+
+        close_win("Round_overlay");
+        set_visible("Top_overlay_status", "false");
+        set_visible("Bottom_overlay", "false");
+        set_visible("Center_overlay_confirm", "false");
+        set_visible("Center_overlay_pickup", "false");
+        set_visible("Center_overlay_dropoff", "false");
+        set_visible("Center_overlay_finished", "false");
+        set_visible("Cancel_flight", "false");
+        set_visible("Blank", "false");
+
+        isUnfinished_Ok = false;
+    }
+    if (isLogin_Ok)
+    {
+        Serial.println("!!!Login success");
+        if (return_page == 5)
+        {
+
+            isUnfinished = true;
+            loginStatus = true;
+            isLogin_Ok = false;
+        }
+        else
+        {
+            set_visible("Logout_confirm", "false");
+            Serial.println("!!!Login success");
+
+            // page = return_page;
+            // return_page = 0;
+            open_win("Flight_arr_dep");
+            set_visible("Flight_arr_dep", "true");
+            set_visible("Accept_flight", "false");
+            set_visible("Overlay_flight", "false");
+            set_visible("Flight_list", "false");
+
+            return_page = 0;
+            _stone_recive_free(const_cast<char *>("widget"));
+            page = 2;
+            char localPageStr[3];
+            snprintf(localPageStr, sizeof(localPageStr), "%d", page);
+            set_text("label", "local_page", localPageStr);
+
+            char localrfidStr[20];
+            snprintf(localrfidStr, sizeof(localrfidStr), "%s", employeeId.c_str());
+            set_text("label", "local_rfid", localrfidStr);
+
+            char driverBuffer[64];
+            snprintf(driverBuffer, sizeof(driverBuffer), "%s", Driver.c_str());
+            set_text("label", "label_user_data", driverBuffer);
+            loginStatus = true;
+            isLogin_Ok = false;
+        }
+    }
+    if (isLogout_Ok)
+    {
+        isLogin = true;
+        isLogout_Ok = false;
+        Serial.println("!!!Logout success");
+    }
+
+    if (receive_over_flage == 1)
+    {
+
+        if (STONER.widget != NULL && strcmp(STONER.widget, "button_logout_yes") == 0)
+        {
+            isLogout = true;
+            Serial.println("!!!YES");
+        }
+        else if (STONER.widget != NULL && strcmp(STONER.widget, "button_logout_no") == 0)
+        {
+            set_visible("Logout_confirm", "false");
+            Serial.println("!!!NO");
+            page = return_page;
+            return_page = 0;
+            char localPageStr[3];
+            snprintf(localPageStr, sizeof(localPageStr), "%d", page);
+            set_text("label", "local_page", localPageStr);
+        }
+        else
+        {
+            Serial.println("XXX ERR XXX");
+        }
+
+        receive_over_flage = 0;
+    }
+}
 // RFID
 void SerialLCD::page1()
 {
-    if (isLogin)
+    if (isLogout_Ok)
+    {
+        loginStatus = false;
+        isLogout_Ok = false;
+    }
+
+    if (loginStatus)
     {
         // open_win("Flight_list");
         // set_visible("Flight_list", "true");
@@ -345,7 +557,7 @@ void SerialLCD::page1()
         char localPageStr[3];
         snprintf(localPageStr, sizeof(localPageStr), "%d", page);
         set_text("label", "local_page", localPageStr);
-
+        isLogin_Ok = false;
         // refreshData();
         set_visible("RFID", "false");
     }
@@ -380,7 +592,7 @@ void SerialLCD::page1()
         //     snprintf(localPageStr, sizeof(localPageStr), "%d", page);
         //     set_text("label", "local_page", localPageStr);
 
-        //     isLogin = false;
+        //     loginStatus = false;
         // }
 
         if (STONER.widget != NULL && strcmp(STONER.widget, "btn_setting_rfid") == 0)
@@ -398,38 +610,41 @@ void SerialLCD::page1()
             String HMI = "HMI Device Version: " + HMI_version;
             set_text("label", "label_HMI_ver", const_cast<char *>(HMI.c_str()));
             set_visible("label_HMI_ver", "true");
-            page = 9;
+            page = 90;
+        }
+        else
+        {
+            Serial.println("XXX ERR XXX");
         }
 
         receive_over_flage = 0;
     }
 }
-// setting
-void SerialLCD::page9()
-{
-    if (receive_over_flage == 1 && !sleepInProgress)
-    {
 
-        if (STONER.widget != NULL && strcmp(STONER.widget, "radio_btn_80") == 0)
-        {
-            set_brightness("80");
-        }
-        else if (STONER.widget != NULL && strcmp(STONER.widget, "radio_btn_100") == 0)
-        {
-            set_brightness("100");
-        }
-        else if (STONER.widget != NULL && strcmp(STONER.widget, "btn_setting_exit") == 0)
-        {
-            set_visible("Setting_page", "false");
-            page = 1;
-        }
-
-        receive_over_flage = 0;
-    }
-}
 // Select ARR / DEP
 void SerialLCD::page2()
 {
+    if (isLogout_Ok)
+    {
+        set_visible("RFID", "true");
+        set_visible("Flight_arr_dep", "false");
+        set_visible("Logout_confirm", "false");
+
+        page = 1;
+        char localPageStr[3];
+        snprintf(localPageStr, sizeof(localPageStr), "%d", page);
+        set_text("label", "local_page", localPageStr);
+
+        set_text("label", "local_rfid", "");
+
+        loginStatus = false;
+
+        flight_type = "";
+        char localTypeStr[5];
+        snprintf(localTypeStr, sizeof(localTypeStr), "%s", flight_type);
+        set_text("label", "local_type", localTypeStr);
+        isLogout_Ok = false;
+    }
 
     if (receive_over_flage == 1)
     {
@@ -462,12 +677,13 @@ void SerialLCD::page2()
 
             recheck_flight_list = true;
             set_visible("Overlay_flight", "false");
-            open_win("Popup_loading");
-            set_visible("Popup_loading", "true");
+
             loadingStartTime = millis();
             loadingInProgress = true;
 
             set_visible("Flight_arr_dep", "false");
+            open_win("Popup_loading");
+            set_visible("Popup_loading", "true");
         }
         else if (STONER.widget != NULL && strcmp(STONER.widget, "btn_dep") == 0)
         {
@@ -498,31 +714,33 @@ void SerialLCD::page2()
 
             recheck_flight_list = true;
             set_visible("Overlay_flight", "false");
-            open_win("Popup_loading");
-            set_visible("Popup_loading", "true");
+
             loadingStartTime = millis();
             loadingInProgress = true;
 
             set_visible("Flight_arr_dep", "false");
+            open_win("Popup_loading");
+            set_visible("Popup_loading", "true");
         }
         else if (STONER.widget != NULL && strcmp(STONER.widget, "btn_flight_arr_dep_exit") == 0)
         {
-            set_visible("RFID", "true");
-            set_visible("Flight_arr_dep", "false");
+            open_win("Logout_confirm");
+            set_text("label", "label_user_logout", "Confirm?");
+            set_visible("label_user_logout", "true");
+            set_visible("Logout_confirm", "true");
+        }
+        else if (STONER.widget != NULL && strcmp(STONER.widget, "button_logout_yes") == 0)
+        {
 
-            page = 1;
-            char localPageStr[3];
-            snprintf(localPageStr, sizeof(localPageStr), "%d", page);
-            set_text("label", "local_page", localPageStr);
-
-            set_text("label", "local_rfid", "");
-
-            isLogin = false;
-
-            flight_type = "";
-            char localTypeStr[5];
-            snprintf(localTypeStr, sizeof(localTypeStr), "%s", flight_type);
-            set_text("label", "local_type", localTypeStr);
+            isLogout = true;
+        }
+        else if (STONER.widget != NULL && strcmp(STONER.widget, "button_logout_no") == 0)
+        {
+            set_visible("Logout_confirm", "false");
+        }
+        else
+        {
+            Serial.println("XXX ERR XXX");
         }
 
         receive_over_flage = 0;
@@ -538,6 +756,30 @@ void SerialLCD::page3()
 
         set_visible("Popup_loading", "false");
         loadingInProgress = false;
+    }
+
+    if (isLogout_Ok)
+    {
+        set_visible("RFID", "true");
+        set_visible("Overlay_flight", "false");
+        set_visible("Flight_list", "false");
+        set_visible("Logout_confirm", "false");
+
+        flight_type = "";
+        char localTypeStr[5];
+        snprintf(localTypeStr, sizeof(localTypeStr), "%s", flight_type);
+        set_text("label", "local_type", localTypeStr);
+
+        page = 1;
+        char localPageStr[3];
+        snprintf(localPageStr, sizeof(localPageStr), "%d", page);
+        set_text("label", "local_page", localPageStr);
+
+        set_text("label", "local_rfid", "");
+
+        loginStatus = false;
+
+        isLogout_Ok = false;
     }
 
     if (receive_over_flage == 1)
@@ -576,23 +818,19 @@ void SerialLCD::page3()
         }
         else if (STONER.widget != NULL && strcmp(STONER.widget, "btn_logout") == 0)
         {
-            set_visible("Overlay_flight", "false");
-            set_visible("Flight_list", "false");
+            open_win("Logout_confirm");
+            set_text("label", "label_user_logout", "Confirm?");
+            set_visible("label_user_logout", "true");
+            set_visible("Logout_confirm", "true");
+        }
+        else if (STONER.widget != NULL && strcmp(STONER.widget, "button_logout_yes") == 0)
+        {
 
-            flight_type = "";
-            char localTypeStr[5];
-            snprintf(localTypeStr, sizeof(localTypeStr), "%s", flight_type);
-            set_text("label", "local_type", localTypeStr);
-
-            page = 1;
-            char localPageStr[3];
-            snprintf(localPageStr, sizeof(localPageStr), "%d", page);
-            set_text("label", "local_page", localPageStr);
-
-            set_text("label", "local_rfid", "");
-
-            isLogin = false;
-            set_visible("RFID", "true");
+            isLogout = true;
+        }
+        else if (STONER.widget != NULL && strcmp(STONER.widget, "button_logout_no") == 0)
+        {
+            set_visible("Logout_confirm", "false");
         }
         else if (STONER.widget != NULL && strcmp(STONER.widget, "btn_arrow_back") == 0)
         {
@@ -612,7 +850,7 @@ void SerialLCD::page3()
         }
         else if (STONER.widget != NULL && isButtonPageWidget(STONER.widget))
         {
-            Serial.println(selected_flight);
+            // Serial.println(selected_flight);
             StaticJsonDocument<256> _selected_flight;
             DeserializationError error = deserializeJson(_selected_flight, selected_flight);
             if (error)
@@ -682,6 +920,10 @@ void SerialLCD::page3()
             set_text("label", "local_page", localPageStr);
 
             _selected_flight.clear();
+        }
+        else
+        {
+            Serial.println("XXX ERR XXX");
         }
 
         receive_over_flage = 0;
@@ -850,7 +1092,11 @@ void SerialLCD::page4()
             int id = _selected_flight["id"];
             taskId = String(id);
             isSelectFlight = true;
-            Serial.println(taskId);
+            // Serial.println(taskId);
+        }
+        else
+        {
+            Serial.println("XXX ERR XXX");
         }
 
         receive_over_flage = 0;
@@ -863,7 +1109,7 @@ void SerialLCD::page5()
     // open_win("Round_overlay");
     if (isCancelTask_Ok)
     {
-        page = 3;
+        page = 2;
         char localPageStr[3];
         snprintf(localPageStr, sizeof(localPageStr), "%d", page);
         set_text("label", "local_page", localPageStr);
@@ -879,7 +1125,7 @@ void SerialLCD::page5()
         set_visible("Cancel_flight", "false");
         set_visible("Blank", "false");
 
-        refreshData();
+        // refreshData();
 
         isCancelTask_Ok = false;
         return;
@@ -887,6 +1133,10 @@ void SerialLCD::page5()
 
     if (isStepAction_Ok)
     {
+        char localTypeStr[5];
+        snprintf(localTypeStr, sizeof(localTypeStr), "%s", flight_type);
+        set_text("label", "local_type", localTypeStr);
+
         if (flight_type == "DEP")
         {
             String flightNumberString = "Flight: " + task_flight;
@@ -1160,17 +1410,21 @@ void SerialLCD::page5()
                 isUndoAction = true;
             }
         }
+        else
+        {
+            Serial.println("XXX ERR XXX");
+        }
         receive_over_flage = 0;
     }
 }
 
 bool SerialLCD::isButtonPageWidget(const char *widgetName)
 {
-    Serial.println(widgetName);
+    // Serial.println(widgetName);
     int dummyInt1;
     if (sscanf(widgetName, "button%d", &dummyInt1) == 1)
     {
-        Serial.println(dummyInt1);
+        // Serial.println(dummyInt1);
         selected_flight = "";
         DynamicJsonDocument _flight_list(ESP.getMaxAllocHeap() - 1024);
         DeserializationError error = deserializeJson(_flight_list, flight_list);

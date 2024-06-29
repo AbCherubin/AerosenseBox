@@ -339,7 +339,7 @@ void Ab_MQTTClient::handleAuthentication(char *topic, byte *payload, unsigned in
         LCD.driverLoginFailed = true;
         return;
     }
-
+    LCD.isLogin_Ok = true;
     String level = jsonDataFromServer["level"];
 
     if (level != "success")
@@ -352,7 +352,7 @@ void Ab_MQTTClient::handleAuthentication(char *topic, byte *payload, unsigned in
         LCD.Driver = "Empty";
         LCD.employeeId = "";
         LCD.driverLoginFailed = false;
-        LCD.isLogin = true;
+        LCD.loginStatus = true;
         return;
     }
 
@@ -368,7 +368,7 @@ void Ab_MQTTClient::handleAuthentication(char *topic, byte *payload, unsigned in
     LCD.Driver = driverName;
     LCD.employeeId = empID;
     LCD.driverLoginFailed = false;
-    LCD.isLogin = true;
+    LCD.loginStatus = true;
 }
 void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int length)
 {
@@ -380,8 +380,9 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
     filter["flight"]["schedule_flight_time"] = true;
     filter["flight"]["bay"] = true;
     filter["flight"]["gate"] = true;
+    filter["flight"]["type"] = true;
     filter["last_action"] = true;
-    LCD.task_flight = "";
+    filter["message"] = true;
     StaticJsonDocument<256> jsonDataFromServer;
 
     DeserializationError error = deserializeJson(jsonDataFromServer, payload, DeserializationOption::Filter(filter));
@@ -394,9 +395,15 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
     }
 
     String event = jsonDataFromServer["event"];
-
+    String msg = jsonDataFromServer["message"];
     if (event == "update" || event == "undo" || event == "create" || event == "get")
     {
+        if (msg == "Update task assignment status to Unfinished")
+        {
+            LCD.isUnfinished_Ok = true;
+            Serial.println("Unfinished");
+            return;
+        }
         if (!LCD.isInitalTaskReady)
         {
             LCD.isInitalTaskReady = true;
@@ -417,6 +424,8 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
             LCD.task_bay = currentBay;
             String currentGate = jsonDataFromServer["flight"]["gate"];
             LCD.task_gate = currentGate;
+            String _flight_type = jsonDataFromServer["flight"]["type"];
+            LCD.flight_type = _flight_type;
 
             const char *scheduleFlightTime = jsonDataFromServer["flight"]["schedule_flight_time"];
             String ST = String(scheduleFlightTime).substring(16, 11);
@@ -441,11 +450,17 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
             Serial.println(LCD.task_et);
             Serial.println(LCD.task_bay);
             Serial.println(LCD.task_gate);
+            Serial.println(LCD.flight_type);
+
             LCD.updateDisplay = true;
             if (event == "create" || event == "get")
             {
                 LCD.isSelectFlight_Ok = true;
                 LCD.taskId = id;
+                if (event == "get")
+                {
+                    LCD.backlog = true;
+                }
             }
         }
         else
@@ -460,7 +475,13 @@ void Ab_MQTTClient::handleMyassignment(char *topic, byte *payload, unsigned int 
     }
     else if (event == "err")
     {
-        Serial.print("err");
+        Serial.println("err");
+    }
+    else if (event == "logout")
+    {
+        LCD.isLogout_Ok = true;
+        Serial.println("isLogout_Ok");
+        Serial.println(msg);
     }
 }
 
@@ -471,6 +492,7 @@ void Ab_MQTTClient::callback(char *topic, byte *payload, unsigned int length)
     Serial.print("] ");
 
     LCD.timeOutInProgress = false;
+    box.mqttStatus = true;
     if (strncmp(topic, "client/response/flight/short/", strlen("client/response/flight/short/")) == 0)
     {
         handleFlightListTopic(topic, payload, length);

@@ -43,6 +43,7 @@ unsigned long card_previousMillis = 0;
 const long card_duration = 300;
 bool isSubscribeTopics = false;
 bool checkSleepPageOn = false;
+bool isSetUpMqtt = false;
 
 Ab_MQTTClient mqttClient(mqtt_id, broker, port, mqttUsername, mqttPassword);
 TaskHandle_t sensors;
@@ -136,8 +137,10 @@ void setup()
   acc.calibrateSensors(); // Perform calibration once during setup
   box.engineMinCount = box.readLongFromEEPROM(box.ENGINE_HOURS_ADDRESS);
   box.distanceCount = box.readDoubleFromEEPROM(box.DISTANCE_ADDRESS);
+  box.mqttStatus = false;
   // Initialize the MQTT client
   LCD.popup_reconnecting_on();
+  close_win("Popup_no_IP");
   mqttClient.begin();
   if (isnan(box.distanceCount))
   {
@@ -176,14 +179,17 @@ void setup()
   IPAddress deviceIP = Network.getDeviceIP();
   Serial.print("Device IP: ");
   Serial.println(deviceIP);
+
   if (deviceIP == IPAddress(0, 0, 0, 0))
   {
     Serial.println("Failed to obtain IP address.");
+    open_win("Popup_no_IP");
+    set_visible("Popup_no_IP", "true");
     set_text("label", "label_no_ip", "Failed to obtain IP address");
   }
   else
   {
-    set_text("label", "label_no_ip", "Reconnecting...");
+    // set_text("label", "label_reconnect", "Reconnecting...");
   }
   while (!httpClient.setTime)
   {
@@ -196,6 +202,9 @@ void setup()
     }
     else
     {
+      open_win("Popup_no_IP");
+      set_visible("Popup_no_IP", "true");
+      set_text("label", "label_no_ip", "Failed to Sync Time.");
       mqttClient.disconnect();
       ESP.restart();
     }
@@ -214,6 +223,9 @@ void setup()
     }
     else
     {
+      open_win("Popup_no_IP");
+      set_visible("Popup_no_IP", "true");
+      set_text("label", "label_no_ip", "Failed to get GSE ID.");
       mqttClient.disconnect();
       ESP.restart();
     }
@@ -226,15 +238,7 @@ void setup()
   timerAttachInterrupt(My_timer, &onTimer, true);
   timerAlarmWrite(My_timer, 1 * 1000000, true);
   timerAlarmEnable(My_timer);
-  String topic_get_task_assignment = "server/request/get_task_assignment/" + box.GSEID;
-  mqttClient.publish(topic_get_task_assignment.c_str(), "");
-  String topic_tasklist = "server/request/tasklist/" + box.GSEID;
-  // mqttClient.publish(topic_tasklist.c_str(), "");
-  //   Start Time Out
-  LCD.timeOutStartTime = millis();
-  LCD.timeOutInProgress = true;
-
-  LCD.timer_flag = 1;
+  isSetUpMqtt = true;
 }
 
 void Sensors(void *pvParameters)
@@ -243,6 +247,7 @@ void Sensors(void *pvParameters)
   for (;;)
   {
     serial_receive();
+
     switch (LCD.page)
     {
     case 0:
@@ -263,11 +268,19 @@ void Sensors(void *pvParameters)
     case 5:
       LCD.page5();
       break;
-    case 9:
-      LCD.page9();
+    case 90:
+      LCD.page90();
+      break;
+    case 91:
+      LCD.page91();
       break;
     default:
       LCD.page0();
+    }
+    // backlog_page
+    if (LCD.backlog && LCD.page > 1 && LCD.page < 5)
+    {
+      LCD.backlog_page();
     }
     // Engine Start-Stop
     long now = millis();
@@ -379,26 +392,43 @@ void Sensors(void *pvParameters)
     //        mqttClient.isAuthenSuccess = false;
     //      }
     //    }
-    if (wg.available() && LCD.page == 1)
+    if (wg.available())
     {
       String gse = box.GSEID;
-      box.rfid = String(wg.getCode(), HEX);
-      box.rfid.toUpperCase();
-      String rfid = box.rfid;
-      Serial.println(box.rfid);
-      String payload = "{\"vehicle\":\"" + gse + "\",\"card_no\":\"" + rfid + "\"}";
-      int maxAttempts = 3;
-      int retryDelay = 100;
-      mqttClient.publishWithRetry("server/authentication/", payload.c_str(), maxAttempts, retryDelay);
+      box.buffer_rfid = String(wg.getCode(), HEX);
+      box.buffer_rfid.toUpperCase();
+      LCD.return_page = LCD.page;
+
+      if (LCD.page == 1)
+      {
+        LCD.isLogin = true;
+      }
+      else
+      {
+        LCD.page = 91;
+        _stone_recive_free(const_cast<char *>("widget"));
+        open_win("Logout_confirm");
+        set_text("label", "label_user_logout", "New User?");
+        set_visible("label_user_logout", "true");
+        set_visible("Logout_confirm", "true");
+      }
     }
     if (LCD.timeOutInProgress && millis() - LCD.timeOutStartTime >= LCD.timeOutDuration)
     {
       LCD.timeOutInProgress = false;
+      Serial.println("Request Timed Out.");
+      open_win("Popup_no_IP");
+      set_visible("Popup_no_IP", "true");
+      set_text("label", "label_no_ip", "Request Timed Out.");
       ESP.restart();
     }
     int freeheap = ESP.getFreeHeap();
     if (freeheap <= 100000)
     {
+      Serial.println("Out Of Memory Error.");
+      open_win("Popup_no_IP");
+      set_visible("Popup_no_IP", "true");
+      set_text("label", "label_no_ip", "Out Of Memory Error.");
       Serial.print(F("Free heap: "));
       Serial.println(ESP.getFreeHeap());
       ESP.restart();
@@ -411,12 +441,33 @@ void loop()
 
   if (!mqttClient.isConnected())
   {
+    open_win("Popup_no_IP");
+    set_visible("Popup_no_IP", "true");
+    set_text("label", "label_no_ip", "No Internet Connection.");
     //
     ESP.restart();
     //    mqttClient.begin();
     //    Serial.println("MQTT NOT CONNECTED!");
     //    mqttClient.reconnect();
     //    isSubscribeTopics = false;
+  }
+  else if (isSetUpMqtt)
+  {
+    String topic_get_task_assignment = "server/request/get_task_assignment/" + box.GSEID;
+    mqttClient.publish(topic_get_task_assignment.c_str(), "");
+    String topic_tasklist = "server/request/tasklist/" + box.GSEID;
+    mqttClient.publish(topic_tasklist.c_str(), "");
+    //   Start Time Out
+    LCD.timeOutStartTime = millis();
+    LCD.timeOutInProgress = true;
+
+    LCD.timer_flag = 1;
+    isSetUpMqtt = false;
+    Serial.println("Set Up Mqtt Done");
+  }
+  else if (!box.mqttStatus)
+  {
+    Serial.print(".");
   }
   else if (!isSubscribeTopics)
   {
@@ -429,17 +480,99 @@ void loop()
     {
       if (box.GSEID != "" && LCD.page == 3)
       {
+        String type = String(LCD.flight_type);
         String topic = "server/request/tasklist/" + box.GSEID;
-        mqttClient.publish(topic.c_str(), "");
+        String payload = "{\"type\":\"" + type + "\"}";
+        mqttClient.publish(topic.c_str(), payload.c_str());
         LCD.recheck_flight_list = false;
         // Start Time Out
         LCD.timeOutStartTime = millis();
         LCD.timeOutInProgress = true;
-        Serial.println("request/tasklist/");
+        Serial.println("request/tasklist/" + type);
       }
       else
       {
         LCD.recheck_flight_list = false;
+      }
+    }
+
+    // Login
+    if (LCD.isLogin)
+    {
+      if (box.GSEID && box.rfid)
+      {
+        box.rfid = box.buffer_rfid;
+        String gse = box.GSEID;
+        String rfid = box.rfid;
+        Serial.println(box.rfid);
+        String payload = "{\"vehicle\":\"" + gse + "\",\"card_no\":\"" + rfid + "\"}";
+        int maxAttempts = 3;
+        int retryDelay = 100;
+        mqttClient.publishWithRetry("server/authentication/", payload.c_str(), maxAttempts, retryDelay);
+
+        LCD.isLogin = false;
+        // Start Time Out
+        LCD.timeOutStartTime = millis();
+        LCD.timeOutInProgress = true;
+      }
+      else
+      {
+        Serial.println("Login failed");
+        String gse = box.GSEID;
+        String rfid = box.rfid;
+        String payload = "{\"vehicle\":\"" + gse + "\",\"card_no\":\"" + rfid + "\"}";
+        Serial.println(payload);
+        LCD.isLogin = false;
+        // back to flight page
+      }
+    }
+
+    // Logout
+    if (LCD.isLogout)
+    {
+      if (box.GSEID)
+      {
+
+        String topic = "server/request/logout/";
+        String payload = "{\"vehicle\":\"" + box.GSEID + "\"}";
+        Serial.println(payload);
+        mqttClient.publish(topic.c_str(), payload.c_str());
+        LCD.isLogout = false;
+        // Start Time Out
+        LCD.timeOutStartTime = millis();
+        LCD.timeOutInProgress = true;
+      }
+      else
+      {
+        Serial.println("Logout failed");
+        String topic = "server/request/logout/";
+        String payload = "{\"vehicle\":\"" + box.GSEID + "\"}";
+        Serial.println(payload);
+        LCD.isLogout = false;
+        // back to flight page
+      }
+    }
+    // Update Status Unfinished
+    if (LCD.isUnfinished)
+    {
+      if (LCD.return_page == 5 && LCD.taskId != "" && LCD.GSEId != "")
+      {
+        String _topic = "server/request/update_task/";
+        String _payload = "{\"task_assignment_id\":\"" + LCD.taskId + "\",\"status\":\"" + "Unfinished" + "\",\"vehicle\":\"" + LCD.GSEId + "\"}";
+        Serial.println(_payload);
+        mqttClient.publish(_topic.c_str(), _payload.c_str());
+        LCD.timeOutStartTime = millis();
+        LCD.timeOutInProgress = true;
+        LCD.isUnfinished = false;
+      }
+      else
+      {
+        Serial.println("Unfinished failed");
+        String _topic = "server/request/update_task/";
+        String _payload = "{\"task_assignment_id\":\"" + LCD.taskId + "\",\"status\":\"" + "Unfinished" + "\",\"vehicle\":\"" + LCD.GSEId + "\"}";
+        Serial.println(_payload);
+        LCD.isUnfinished = false;
+        // back to flight page
       }
     }
 
@@ -504,6 +637,7 @@ void loop()
         LCD.isCancelTask_Ok = true;
       }
     }
+
     if (LCD.isUndoAction)
     {
       if (LCD.page == 5 && LCD.taskId != "" && LCD.task_step > 0)
@@ -550,7 +684,7 @@ void loop()
       }
       else
       {
-        Serial.println("select action failed");
+        Serial.println("cancel_task_assignment failed");
         String taskId = String(LCD.taskId);
         String topic = "server/request/cancel_task_assignment/";
         String payload = "{\"task_assignment_id\":\"" + taskId + "\"}";

@@ -27,6 +27,9 @@ public:
   String engineMinutes;
   String distance; // KM
   String rfid;
+  String buffer_rfid;
+
+  bool mqttStatus = false;
 
   String GSEID;
   String driver;

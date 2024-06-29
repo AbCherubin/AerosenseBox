@@ -45,18 +45,22 @@ public:
   void page3();
   void page4();
   void page5();
-  void page9();
+  void page90();
+  void page91();
 
   void refreshData();
 
   void popup_reconnecting_on();
   void popup_reconnecting_off();
 
+  void backlog_page();
+
   uint8_t page = 0;
   uint8_t job_step = 0;
   uint8_t currentRound = 0;
   uint8_t currentRound_offset = 0;
   uint8_t maxStep = (roundTask * 2) + 1;
+  uint8_t return_page = 0;
 
   bool is4G;
   bool isSensor;
@@ -65,7 +69,7 @@ public:
   bool isTemp;
   bool isGPS;
 
-  bool isLogin = false;
+  bool loginStatus = false;
   bool driverLoginFailed = false;
 
   bool isSelectFlight = false;
@@ -77,6 +81,15 @@ public:
   bool isUndoAction = false;
   bool isUndoAction_Ok = false;
 
+  bool isLogout = false;
+  bool isLogout_Ok = false;
+
+  bool isLogin = false;
+  bool isLogin_Ok = false;
+
+  bool isUnfinished = false;
+  bool isUnfinished_Ok = false;
+
   bool isCancelTask = false;
   bool isCancelTask_Ok = false;
 
@@ -85,6 +98,8 @@ public:
   bool sleepInProgress = true;
 
   bool updateDisplay = false;
+
+  bool backlog = false;
 
   String Datetime;
   String GSEId;
